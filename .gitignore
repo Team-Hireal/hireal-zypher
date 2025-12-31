@@ -1,22 +1,5 @@
-# Environment variables
 .env
-
-# Deno
 .deno/
-deno.lock
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
 *.log
-logs/
+.DS_Store
 
