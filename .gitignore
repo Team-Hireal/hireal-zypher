@@ -1,5 +1,10 @@
 .env
+.env.example
 .deno/
 *.log
 .DS_Store
-
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo

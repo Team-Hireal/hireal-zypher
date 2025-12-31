@@ -5,6 +5,32 @@ import {
 } from "@zypher/agent";
 import { eachValueFrom } from "rxjs-for-await";
 
+// Load environment variables from .env file if it exists
+async function loadEnvFile(): Promise<void> {
+  try {
+    const envFile = await Deno.readTextFile(".env");
+    for (const line of envFile.split("\n")) {
+      const trimmedLine = line.trim();
+      // Skip empty lines and comments
+      if (!trimmedLine || trimmedLine.startsWith("#")) continue;
+      
+      const [key, ...valueParts] = trimmedLine.split("=");
+      if (key && valueParts.length > 0) {
+        const value = valueParts.join("=").trim();
+        // Only set if not already set (environment variables take precedence)
+        if (!Deno.env.get(key.trim())) {
+          Deno.env.set(key.trim(), value);
+        }
+      }
+    }
+  } catch (error) {
+    // .env file doesn't exist or can't be read - that's okay
+    if (!(error instanceof Deno.errors.NotFound)) {
+      console.warn("Warning: Could not load .env file:", error.message);
+    }
+  }
+}
+
 // Helper function to safely get environment variables
 function getRequiredEnv(name: string): string {
   const value = Deno.env.get(name);
@@ -13,6 +39,9 @@ function getRequiredEnv(name: string): string {
   }
   return value;
 }
+
+// Load .env file before proceeding
+await loadEnvFile();
 
 // Initialize the agent execution context
 const zypherContext = await createZypherContext(Deno.cwd());
