@@ -1,4 +1,4 @@
-# Hireal Zypher Agent
+# Hireal Zypher
 
 A Zypher Agent implementation for Hireal, powered by Anthropic's Claude and Firecrawl MCP server.
 
@@ -11,71 +11,59 @@ A Zypher Agent implementation for Hireal, powered by Anthropic's Claude and Fire
 
 ## Setup
 
-1. Clone the repository:
+1. **Install dependencies:**
+
 ```bash
-git clone <repository-url>
-cd hireal-zypher
+deno add jsr:@zypher/agent
+deno add npm:rxjs-for-await
 ```
 
-2. Install dependencies:
-```bash
-deno install
-```
+2. **Set up environment variables:**
 
-3. Set up environment variables:
+Copy `.env.example` to `.env` and fill in your API keys:
+
 ```bash
 cp .env.example .env
-# Edit .env and add your API keys
 ```
 
-4. Run the agent:
+Then edit `.env` with your actual API keys.
+
+3. **Run the agent:**
+
+```bash
+deno run -A main.ts
+```
+
+Or use the task:
+
 ```bash
 deno task start
-```
-
-Or use the dev task for watch mode:
-```bash
-deno task dev
-```
-
-## Usage
-
-The agent is configured to find the latest AI news using web crawling capabilities via Firecrawl MCP server.
-
-You can modify the task in `main.ts` to run different tasks:
-
-```typescript
-// Ask questions
-agent.runTask("What are the benefits of using AI agents?")
-
-// Give instructions
-agent.runTask("Write a hello world program in TypeScript")
-
-// Request analysis
-agent.runTask("List the pros and cons of different programming languages")
-```
-
-## Interactive CLI Mode
-
-For an interactive experience, you can use the built-in terminal interface:
-
-```typescript
-import { runAgentInTerminal } from "@zypher/agent";
-
-await runAgentInTerminal(agent, "claude-sonnet-4-20250514");
 ```
 
 ## Project Structure
 
 - `main.ts` - Main agent implementation
 - `deno.json` - Deno configuration and tasks
-- `.env` - Environment variables (not in git)
 - `.env.example` - Environment variables template
+- `.env` - Your actual environment variables (not committed)
+
+## Features
+
+- AI agent powered by Anthropic's Claude Sonnet 4
+- Web crawling capabilities via Firecrawl MCP server
+- Real-time event streaming
+- Task-based execution
+
+## Next Steps
+
+- Explore different LLM providers
+- Add more MCP servers for extended capabilities
+- Implement checkpoints for state management
+- Add loop interceptors for execution control
 
 ## Resources
 
 - [Zypher Agent Documentation](https://zypher.dev)
-- [Deno Documentation](https://deno.land/docs)
-- [Anthropic API](https://docs.anthropic.com)
+- [Anthropic API Docs](https://docs.anthropic.com)
 - [Firecrawl MCP](https://firecrawl.dev)
 
