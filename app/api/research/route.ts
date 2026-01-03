@@ -487,16 +487,19 @@ export async function POST(request: NextRequest) {
             lastEventTime = Date.now();
             eventCount++;
             
+            // Type guard for event
+            const eventAny = event as any;
+            
             // Detailed logging for all events
-            const eventType = event.type || 'unknown';
+            const eventType = eventAny?.type || 'unknown';
             
             // Log the actual event structure for debugging
             console.log(`[Event #${eventCount}] Type: ${eventType}`);
             
             // Filter out non-fatal MCP tool errors - they're logged but don't stop execution
-            if (event.type === 'tool_error' || event.type === 'error') {
-              const eventStr = JSON.stringify(event);
-              const errorMsg = (event.message || event.error || eventStr || '').toLowerCase();
+            if (eventAny?.type === 'tool_error' || eventAny?.type === 'error') {
+              const eventStr = JSON.stringify(eventAny);
+              const errorMsg = (eventAny?.message || eventAny?.error || eventStr || '').toLowerCase();
               
               // Check for authentication errors - these are FATAL and should stop execution
               if (errorMsg.includes('authentication') || 
@@ -504,7 +507,7 @@ export async function POST(request: NextRequest) {
                   errorMsg.includes('invalid x-api-key') ||
                   errorMsg.includes('401') ||
                   (errorMsg.includes('status') && errorMsg.includes('401'))) {
-                console.error(`[FATAL] Authentication error detected:`, event);
+                console.error(`[FATAL] Authentication error detected:`, eventAny);
                 const authError = JSON.stringify({
                   type: 'fatal_authentication_error',
                   message: 
@@ -514,7 +517,7 @@ export async function POST(request: NextRequest) {
                     `1. Check your .env file has a valid key\n` +
                     `2. Get a new key at: https://console.anthropic.com/\n` +
                     `3. Restart the server after updating the key\n\n` +
-                    `Original error: ${event.message || event.error || 'Authentication failed'}`,
+                    `Original error: ${eventAny?.message || eventAny?.error || 'Authentication failed'}`,
                   timestamp: Date.now()
                 });
                 safeEnqueue(`data: ${authError}\n\n`);
@@ -527,12 +530,12 @@ export async function POST(request: NextRequest) {
               if (eventStr.includes('parameter validation failed') || 
                   eventStr.includes('McpError') ||
                   eventStr.includes('firecrawl_search')) {
-                console.warn(`[Non-fatal Error] ${event.type} - agent will retry`);
+                console.warn(`[Non-fatal Error] ${eventAny?.type} - agent will retry`);
                 // Still send a notification to frontend
                 const errorNotification = JSON.stringify({
                   type: 'tool_error_retry',
                   message: 'Tool error occurred, trying alternative method...',
-                  tool: event.tool_name || 'unknown',
+                  tool: eventAny?.tool_name || 'unknown',
                   timestamp: Date.now()
                 });
                 safeEnqueue(`data: ${errorNotification}\n\n`);
@@ -540,7 +543,7 @@ export async function POST(request: NextRequest) {
               }
               // For other errors, still send them but mark as warnings
               const warningData = JSON.stringify({
-                ...event,
+                ...eventAny,
                 warning: true,
                 message: 'Tool error occurred, agent will attempt alternative methods'
               });
@@ -550,7 +553,7 @@ export async function POST(request: NextRequest) {
             
             // Send all events to frontend with enhanced metadata
             const enhancedEvent = {
-              ...event,
+              ...eventAny,
               eventNumber: eventCount,
               timestamp: Date.now(),
             };
