@@ -16,7 +16,7 @@ export default function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false)
   const [serverConnected, setServerConnected] = useState<boolean | null>(null)
   const [agentStatus, setAgentStatus] = useState<string | null>(null)
-  const [useWebSocket, setUseWebSocket] = useState(true) // Default to WebSocket
+  const [useWebSocket, setUseWebSocket] = useState(false) // Default to SSE (WebSocket not supported on Vercel)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
@@ -34,7 +34,7 @@ export default function ChatInterface() {
   useEffect(() => {
     const checkServer = async () => {
       try {
-        const response = await fetch('http://localhost:8000/health', {
+        const response = await fetch('/api/health', {
           method: 'GET',
         })
         setServerConnected(response.ok)
@@ -45,11 +45,12 @@ export default function ChatInterface() {
     checkServer()
   }, [])
 
-  // WebSocket connection management
+  // WebSocket connection management (disabled on Vercel - WebSocket not supported)
   useEffect(() => {
     if (useWebSocket && serverConnected) {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const wsUrl = `${protocol}//localhost:8000/ws`
+      const host = window.location.host
+      const wsUrl = `${protocol}//${host}/ws`
       
       try {
         const ws = new WebSocket(wsUrl)
@@ -262,7 +263,7 @@ export default function ChatInterface() {
 
     // Fall back to SSE (Server-Sent Events)
     try {
-      const response = await fetch('http://localhost:8000/api/research', {
+      const response = await fetch('/api/research', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

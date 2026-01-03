@@ -189,12 +189,27 @@ Health check endpoint.
 }
 ```
 
+## Deployment
+
+### Vercel Deployment
+
+This project is configured for deployment on Vercel. See [VERCEL_DEPLOY.md](./VERCEL_DEPLOY.md) for detailed deployment instructions.
+
+**Quick Steps:**
+1. Push your code to a Git repository
+2. Import the project to Vercel
+3. Add environment variables (`ANTHROPIC_API_KEY`, `FIRECRAWL_API_KEY`)
+4. Deploy!
+
+**Note**: The project has been converted from a Deno server to Next.js API routes for Vercel compatibility. WebSocket support is disabled (falls back to Server-Sent Events).
+
 ## Resources
 
 - [Zypher Agent Documentation](https://zypher.dev/)
 - [Anthropic API Documentation](https://docs.anthropic.com/)
 - [Firecrawl Documentation](https://docs.firecrawl.dev/)
 - [Next.js Documentation](https://nextjs.org/docs)
+- [Vercel Deployment Guide](./VERCEL_DEPLOY.md)
 
 ## License
 
