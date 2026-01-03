@@ -92,14 +92,65 @@ export default function ChatInterface() {
               // Show tool result in status
               setAgentStatus('Processing results...')
             } else if (data.type === 'complete') {
-              // Mark streaming as complete
+              // Mark streaming as complete and clean final message
               if (currentAssistantMessageIdRef.current) {
                 setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === currentAssistantMessageIdRef.current
-                      ? { ...msg, isStreaming: false }
-                      : msg
-                  )
+                  prev.map((msg) => {
+                    if (msg.id === currentAssistantMessageIdRef.current) {
+                      // Clean the final message to remove duplicates
+                      const cleanFinalMessage = (text: string): string => {
+                        if (!text) return text;
+                        const sentences = text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 0);
+                        const uniqueSentences: string[] = [];
+                        const seen = new Set<string>();
+                        
+                        // Normalize function: remove spaces and punctuation for comparison
+                        // This makes "Hithere" and "Hi there" identical for duplicate detection
+                        const normalizeForComparison = (s: string): string => {
+                          return s.toLowerCase()
+                            .replace(/\s+/g, '')  // Remove all spaces
+                            .replace(/[.!?,:;'"-]/g, '')  // Remove punctuation
+                            .trim();
+                        };
+                        
+                        for (const sentence of sentences) {
+                          const normalized = normalizeForComparison(sentence);
+                          let isDuplicate = false;
+                          
+                          for (const seenNormalized of seen) {
+                            // If normalized versions are identical, consider duplicate
+                            if (normalized === seenNormalized) {
+                              isDuplicate = true;
+                              break;
+                            }
+                            // Check if one contains the other (for partial duplicates)
+                            const shorter = normalized.length < seenNormalized.length ? normalized : seenNormalized;
+                            const longer = normalized.length < seenNormalized.length ? seenNormalized : normalized;
+                            if (shorter.length > 10 && longer.includes(shorter)) {
+                              // If shorter is >80% of longer, consider duplicate
+                              if (shorter.length / longer.length > 0.8) {
+                                isDuplicate = true;
+                                break;
+                              }
+                            }
+                          }
+                          
+                          if (!isDuplicate) {
+                            uniqueSentences.push(sentence);
+                            seen.add(normalized);
+                          }
+                        }
+                        return uniqueSentences.join(' ').trim();
+                      };
+                      
+                      return {
+                        ...msg,
+                        content: cleanFinalMessage(msg.content || ''),
+                        isStreaming: false
+                      };
+                    }
+                    return msg;
+                  })
                 )
                 setAgentStatus(null)
                 currentAssistantMessageIdRef.current = null
@@ -264,11 +315,62 @@ export default function ChatInterface() {
                 // Handle task completion
                 if (data.type === 'task_complete' || data.type === 'completed') {
                   setMessages((prev) =>
-                    prev.map((msg) =>
-                      msg.id === assistantMessageId
-                        ? { ...msg, isStreaming: false }
-                        : msg
-                    )
+                    prev.map((msg) => {
+                      if (msg.id === assistantMessageId) {
+                        // Clean final message to remove duplicates
+                        const cleanFinalMessage = (text: string): string => {
+                          if (!text) return text;
+                          const sentences = text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 0);
+                          const uniqueSentences: string[] = [];
+                          const seen = new Set<string>();
+                          
+                          // Normalize function: remove spaces and punctuation for comparison
+                          // This makes "Hithere" and "Hi there" identical for duplicate detection
+                          const normalizeForComparison = (s: string): string => {
+                            return s.toLowerCase()
+                              .replace(/\s+/g, '')  // Remove all spaces
+                              .replace(/[.!?,:;'"-]/g, '')  // Remove punctuation
+                              .trim();
+                          };
+                          
+                          for (const sentence of sentences) {
+                            const normalized = normalizeForComparison(sentence);
+                            let isDuplicate = false;
+                            
+                            for (const seenNormalized of seen) {
+                              // If normalized versions are identical, consider duplicate
+                              if (normalized === seenNormalized) {
+                                isDuplicate = true;
+                                break;
+                              }
+                              // Check if one contains the other (for partial duplicates)
+                              const shorter = normalized.length < seenNormalized.length ? normalized : seenNormalized;
+                              const longer = normalized.length < seenNormalized.length ? seenNormalized : normalized;
+                              if (shorter.length > 10 && longer.includes(shorter)) {
+                                // If shorter is >80% of longer, consider duplicate
+                                if (shorter.length / longer.length > 0.8) {
+                                  isDuplicate = true;
+                                  break;
+                                }
+                              }
+                            }
+                            
+                            if (!isDuplicate) {
+                              uniqueSentences.push(sentence);
+                              seen.add(normalized);
+                            }
+                          }
+                          return uniqueSentences.join(' ').trim();
+                        };
+                        
+                        return {
+                          ...msg,
+                          content: cleanFinalMessage(msg.content || ''),
+                          isStreaming: false
+                        };
+                      }
+                      return msg;
+                    })
                   )
                   continue
                 }
@@ -376,22 +478,177 @@ export default function ChatInterface() {
     // Build a comprehensive message from agent events
     let message = '';
     
+    // Helper to clean task prompt echoes (simple, for streaming chunks)
+    const cleanAgentResponse = (text: string): string => {
+      if (!text) return text;
+      
+      // Remove the task prompt if the agent echoed it back
+      const promptPatterns = [
+        /^You are a friendly AI research assistant.*?Only provide.*?$/s,
+        /^You are a friendly AI research assistant.*?Do NOT.*?$/s,
+        /^The user said:.*?"/s,
+      ];
+      
+      for (const pattern of promptPatterns) {
+        text = text.replace(pattern, '');
+      }
+      
+      // Remove trailing instruction echoes (but don't split sentences)
+      text = text.replace(/Do NOT use.*?$/s, '');
+      text = text.replace(/Only provide.*?$/s, '');
+      text = text.replace(/Respond.*?sentences.*?$/s, '');
+      
+      // Fix periods in the middle of words (e.g., "here.to" -> "here to" or "here. to")
+      // This happens when streaming breaks text incorrectly
+      text = text.replace(/([a-z])\.([a-z])/gi, '$1 $2');
+      // Fix merged words: lowercase letter followed by uppercase letter (e.g., "yourAI" -> "your AI")
+      text = text.replace(/([a-z])([A-Z])/g, '$1 $2');
+      // Fix merged words: uppercase letter followed by lowercase (e.g., "Hithere" -> "Hi there")
+      text = text.replace(/([A-Z][a-z]+)([a-z]{2,})/g, (match, p1, p2) => {
+        // If the second part looks like a word (starts with lowercase, 2+ chars), add space
+        if (p2.length >= 2 && /^[a-z]/.test(p2)) {
+          return p1 + ' ' + p2;
+        }
+        return match;
+      });
+      
+      return text.trim();
+    };
+    
+    // Clean final message to remove duplicates (only for complete messages)
+    const cleanFinalMessage = (text: string): string => {
+      if (!text) return text;
+      
+      // First basic cleaning
+      text = cleanAgentResponse(text);
+      
+      // Fix any remaining formatting issues
+      // Fix periods in middle of words
+      text = text.replace(/([a-z])\.([a-z])/gi, '$1 $2');
+      // Fix merged words: lowercase letter followed by uppercase letter (e.g., "yourAI" -> "your AI")
+      text = text.replace(/([a-z])([A-Z])/g, '$1 $2');
+      // Fix merged words: uppercase word followed by lowercase word (e.g., "Hithere" -> "Hi there")
+      text = text.replace(/([A-Z][a-z]+)([a-z]{2,})/g, (match, p1, p2) => {
+        // Common short words that might be merged
+        const commonWords = ['there', 'here', 'with', 'your', 'any', 'can', 'the', 'and', 'for', 'are', 'was', 'has', 'had', 'not', 'but', 'you', 'all', 'how', 'what', 'when', 'where', 'this', 'that', 'from', 'have', 'will', 'would', 'could', 'should'];
+        if (commonWords.includes(p2.toLowerCase()) || p2.length >= 3) {
+          return p1 + ' ' + p2;
+        }
+        return match;
+      });
+      // Fix merged words: lowercase word followed by lowercase word (e.g., "withany" -> "with any")
+      // This is trickier - we'll use common word patterns
+      const commonWordPatterns = [
+        /(with)(any|your|the|a|an|this|that|these|those)/gi,
+        /(how)(can|could|should|will|would|do|did|does|is|are|was|were)/gi,
+        /(what)(is|are|was|were|do|did|does|can|could|should|will|would)/gi,
+        /(when)(is|are|was|were|do|did|does|can|could|should|will|would)/gi,
+        /(where)(is|are|was|were|do|did|does|can|could|should|will|would)/gi,
+        /(there)(is|are|was|were|will|would)/gi,
+        /(here)(is|are|was|were|will|would)/gi,
+        /(your)(coding|programming|code|project|work|task|question|issue|problem)/gi,
+        /(any)(programming|coding|code|task|question|issue|problem|help|assistance)/gi,
+      ];
+      for (const pattern of commonWordPatterns) {
+        text = text.replace(pattern, '$1 $2');
+      }
+      // More general: catch common merged word patterns
+      // Fix "Hithere", "Howcan", etc. (capitalized word + lowercase word)
+      text = text.replace(/([A-Z][a-z]{1,2})([a-z]{2,})/g, (match, p1, p2) => {
+        const commonWords = ['there', 'here', 'can', 'will', 'would', 'could', 'should', 'have', 'with', 'your', 'any', 'the', 'and', 'for', 'are', 'was', 'has', 'had', 'not', 'but', 'you', 'all', 'how', 'what', 'when', 'where', 'this', 'that', 'from'];
+        if (commonWords.includes(p2.toLowerCase())) {
+          return p1 + ' ' + p2;
+        }
+        return match;
+      });
+      // Fix lowercase-to-lowercase merges like "withany", "withyour", "codingassistant"
+      text = text.replace(/([a-z]{2,})([a-z]{3,})/g, (match, p1, p2) => {
+        const word1 = p1.toLowerCase();
+        const word2 = p2.toLowerCase();
+        // Common first words
+        const commonFirst = ['with', 'your', 'any', 'the', 'and', 'for', 'are', 'was', 'has', 'had', 'not', 'but', 'you', 'all', 'how', 'what', 'when', 'where', 'this', 'that', 'from', 'have', 'will', 'would', 'could', 'should', 'there', 'here', 'can'];
+        // Common second words
+        const commonSecond = ['any', 'your', 'the', 'and', 'for', 'are', 'was', 'has', 'had', 'not', 'but', 'you', 'all', 'how', 'what', 'when', 'where', 'this', 'that', 'from', 'have', 'will', 'would', 'could', 'should', 'there', 'here', 'can', 'coding', 'programming', 'assistant', 'tasks', 'questions', 'today'];
+        // Common word endings that suggest word boundary
+        const commonEndings = ['ing', 'ed', 'er', 'ly', 'tion', 'sion', 'ment', 'ness', 'ful', 'less', 'ist', 'ism'];
+        
+        if (commonFirst.includes(word1) || commonSecond.includes(word2) || 
+            commonEndings.some(ending => word1.endsWith(ending))) {
+          return p1 + ' ' + p2;
+        }
+        return match;
+      });
+      // Normalize multiple spaces
+      text = text.replace(/\s+/g, ' ');
+      // Fix spacing around punctuation
+      text = text.replace(/\s+([.!?,])/g, '$1');
+      text = text.replace(/([.!?])\s*([a-z])/gi, '$1 $2');
+      
+      // Remove duplicate content - split by sentence boundaries carefully
+      const sentences = text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 0);
+      const uniqueSentences: string[] = [];
+      const seen = new Set<string>();
+      
+      // Normalize function: remove spaces and punctuation for comparison
+      // This makes "Hithere" and "Hi there" identical for duplicate detection
+      const normalizeForComparison = (s: string): string => {
+        return s.toLowerCase()
+          .replace(/\s+/g, '')  // Remove all spaces
+          .replace(/[.!?,:;'"-]/g, '')  // Remove punctuation
+          .trim();
+      };
+      
+      for (const sentence of sentences) {
+        const normalized = normalizeForComparison(sentence);
+        let isDuplicate = false;
+        
+        for (const seenNormalized of seen) {
+          // If normalized versions are identical, consider duplicate
+          if (normalized === seenNormalized) {
+            isDuplicate = true;
+            break;
+          }
+          // Check if one contains the other (for partial duplicates)
+          const shorter = normalized.length < seenNormalized.length ? normalized : seenNormalized;
+          const longer = normalized.length < seenNormalized.length ? seenNormalized : normalized;
+          if (shorter.length > 10 && longer.includes(shorter)) {
+            // If shorter is >80% of longer, consider duplicate
+            if (shorter.length / longer.length > 0.8) {
+              isDuplicate = true;
+              break;
+            }
+          }
+        }
+        
+        if (!isDuplicate) {
+          uniqueSentences.push(sentence);
+          seen.add(normalized);
+        }
+      }
+      
+      // Rejoin with single space and ensure proper punctuation spacing
+      let result = uniqueSentences.join(' ').trim();
+      // Final cleanup: ensure space after periods
+      result = result.replace(/([.!?])([a-z])/gi, '$1 $2');
+      return result;
+    };
+    
     // Helper to recursively find text in nested objects
     const findTextInObject = (obj: any, depth = 0): string => {
       if (depth > 3) return ''; // Limit recursion depth
       if (!obj || typeof obj !== 'object') return '';
       
       // Check direct text fields
-      if (typeof obj.text === 'string' && obj.text.trim()) return obj.text;
-      if (typeof obj.content === 'string' && obj.content.trim()) return obj.content;
-      if (typeof obj.message === 'string' && obj.message.trim()) return obj.message;
+      if (typeof obj.text === 'string' && obj.text.trim()) return cleanAgentResponse(obj.text);
+      if (typeof obj.content === 'string' && obj.content.trim()) return cleanAgentResponse(obj.content);
+      if (typeof obj.message === 'string' && obj.message.trim()) return cleanAgentResponse(obj.message);
       
       // Check content arrays
       if (Array.isArray(obj.content)) {
         const textParts = obj.content
           .filter((item: any) => item && item.type === 'text' && typeof item.text === 'string')
           .map((item: any) => item.text);
-        if (textParts.length > 0) return textParts.join('');
+        if (textParts.length > 0) return cleanAgentResponse(textParts.join(''));
       }
       
       // Recursively check nested objects
@@ -407,11 +664,11 @@ export default function ChatInterface() {
     
     // First, try to extract text content directly (highest priority)
     if (typeof data.text === 'string' && data.text.trim()) {
-      return data.text;
+      return cleanAgentResponse(data.text);
     }
     
     if (typeof data.content === 'string' && data.content.trim()) {
-      return data.content;
+      return cleanAgentResponse(data.content);
     }
     
     // Handle message type - could be user or assistant message
@@ -423,12 +680,12 @@ export default function ChatInterface() {
           .filter((item: any) => item && item.type === 'text' && typeof item.text === 'string')
           .map((item: any) => item.text);
         if (textParts.length > 0) {
-          return textParts.join('');
+          return cleanAgentResponse(textParts.join(''));
         }
       } else if (msgObj.content && typeof msgObj.content === 'string') {
-        return msgObj.content;
+        return cleanAgentResponse(msgObj.content);
       } else if (msgObj.text && typeof msgObj.text === 'string') {
-        return msgObj.text;
+        return cleanAgentResponse(msgObj.text);
       }
     }
     
@@ -458,21 +715,21 @@ export default function ChatInterface() {
     } else if (data.type === 'text') {
       // Regular text content - check all possible fields
       if (data.message && typeof data.message === 'object' && data.message.text) {
-        message += data.message.text;
+        message += cleanAgentResponse(data.message.text);
       } else if (data.message && typeof data.message === 'string') {
-        message += data.message;
+        message += cleanAgentResponse(data.message);
       }
     } else if (data.type === 'task_complete' || data.type === 'task_result') {
       message += `\n✅ Task Complete\n`;
       if (data.result) {
-        message += data.result;
+        message += cleanAgentResponse(data.result);
       } else if (data.content) {
-        message += data.content;
+        message += cleanAgentResponse(data.content);
       }
     } else {
       // For other events, try to extract any text content
       if (data.message && typeof data.message === 'string') {
-        message += data.message;
+        message += cleanAgentResponse(data.message);
       } else if (data.tool_name) {
         message += `Tool: ${data.tool_name}`;
       }
@@ -500,20 +757,113 @@ export default function ChatInterface() {
                          (typeof newData.content === 'string' && !newData.type);
     
     if (isTextContent) {
-      // For streaming text, check if newContent is a continuation or duplicate
-      // Only skip if the entire newContent already exists in currentContent
-      // (not just the first 50 chars, which was too aggressive)
-      if (currentContent.includes(newContent)) {
-        return currentContent; // Exact duplicate, skip
+      // Normalize function: remove spaces and punctuation for comparison
+      // This makes "Hithere" and "Hi there" identical for duplicate detection
+      const normalizeForComparison = (s: string): string => {
+        return s.toLowerCase()
+          .replace(/\s+/g, '')  // Remove all spaces
+          .replace(/[.!?,:;'"-]/g, '')  // Remove punctuation
+          .trim();
+      };
+      
+      // Clean both contents before comparison
+      const cleanedCurrent = currentContent.trim();
+      let cleanedNew = newContent.trim();
+      
+      // Normalize both for duplicate detection
+      const normalizedCurrent = normalizeForComparison(cleanedCurrent);
+      const normalizedNew = normalizeForComparison(cleanedNew);
+      
+      // Skip if normalized versions are identical (duplicate)
+      if (normalizedCurrent === normalizedNew) {
+        return currentContent; // Keep the existing version
       }
       
-      // Check if newContent is a prefix of currentContent (backwards duplicate)
-      if (newContent.length > 10 && currentContent.startsWith(newContent)) {
-        return currentContent; // New content is already at the start, skip
+      // Check if normalized new is contained in normalized current (duplicate)
+      if (normalizedCurrent.includes(normalizedNew) && normalizedNew.length > 10) {
+        // If new content is >80% of current content, it's likely a duplicate
+        if (normalizedNew.length / normalizedCurrent.length > 0.8) {
+          return currentContent;
+        }
       }
       
-      // For streaming text, append without separator (continuous text)
-      return currentContent + newContent;
+      // Check if normalized current is contained in normalized new (replacement with better formatting)
+      if (normalizedNew.includes(normalizedCurrent) && normalizedCurrent.length > 10) {
+        // If current is >80% of new, new is likely a better-formatted version
+        if (normalizedCurrent.length / normalizedNew.length > 0.8) {
+          // Use the new version if it has better spacing (more spaces = better formatted)
+          if (cleanedNew.split(/\s+/).length > cleanedCurrent.split(/\s+/).length) {
+            return newContent; // Replace with better formatted version
+          }
+        }
+      }
+      
+      // For streaming text, always add space between chunks to prevent word concatenation
+      // But first, fix any merged words in the new content before adding
+      let fixedNewContent = cleanedNew;
+      
+      // Fix merged words in new content during streaming
+      // Fix periods in middle of words
+      fixedNewContent = fixedNewContent.replace(/([a-z])\.([a-z])/gi, '$1 $2');
+      // Fix merged words: lowercase letter followed by uppercase letter
+      fixedNewContent = fixedNewContent.replace(/([a-z])([A-Z])/g, '$1 $2');
+      // Fix merged words: uppercase word followed by lowercase word
+      fixedNewContent = fixedNewContent.replace(/([A-Z][a-z]{1,2})([a-z]{2,})/g, (match, p1, p2) => {
+        const commonWords = ['there', 'here', 'can', 'will', 'would', 'could', 'should', 'have', 'with', 'your', 'any', 'the', 'and', 'for', 'are', 'was', 'has', 'had', 'not', 'but', 'you', 'all', 'how', 'what', 'when', 'where', 'this', 'that', 'from', 'with', 'deep', 'about'];
+        if (commonWords.includes(p2.toLowerCase()) || p2.length >= 3) {
+          return p1 + ' ' + p2;
+        }
+        return match;
+      });
+      // Fix lowercase-to-lowercase merges
+      fixedNewContent = fixedNewContent.replace(/([a-z]{2,})([a-z]{3,})/g, (match, p1, p2) => {
+        const word1 = p1.toLowerCase();
+        const word2 = p2.toLowerCase();
+        const commonFirst = ['with', 'your', 'any', 'the', 'and', 'for', 'are', 'was', 'has', 'had', 'not', 'but', 'you', 'all', 'how', 'what', 'when', 'where', 'this', 'that', 'from', 'have', 'will', 'would', 'could', 'should', 'there', 'here', 'can', 'help', 'diving', 'curious'];
+        const commonSecond = ['any', 'your', 'the', 'and', 'for', 'are', 'was', 'has', 'had', 'not', 'but', 'you', 'all', 'how', 'what', 'when', 'where', 'this', 'that', 'from', 'have', 'will', 'would', 'could', 'should', 'there', 'here', 'can', 'research', 'need', 'online', 'data', 'deep', 'into', 'topics', 'about', 'today', 'would'];
+        const commonEndings = ['ing', 'ed', 'er', 'ly', 'tion', 'sion', 'ment', 'ness', 'ful', 'less', 'ist', 'ism'];
+        
+        if (commonFirst.includes(word1) || commonSecond.includes(word2) || 
+            commonEndings.some(ending => word1.endsWith(ending))) {
+          return p1 + ' ' + p2;
+        }
+        return match;
+      });
+      
+      // Now check again with fixed content for duplicates
+      const fixedNormalizedNew = normalizeForComparison(fixedNewContent);
+      if (normalizedCurrent === fixedNormalizedNew) {
+        return currentContent; // Duplicate after fixing
+      }
+      
+      // Use the fixed version
+      cleanedNew = fixedNewContent;
+      // Normalize spacing: trim both sides and add a single space
+      const trimmedCurrent = currentContent.trimEnd();
+      const trimmedNew = cleanedNew.trimStart();
+      
+      // Check if we should skip adding space (punctuation that should attach directly)
+      const currentEndsWithPunctuation = /[.!?,:;]$/.test(trimmedCurrent);
+      const newStartsWithPunctuation = /^[.!?,:;]/.test(trimmedNew);
+      
+      // If current ends with punctuation and new starts with punctuation, attach directly
+      if (currentEndsWithPunctuation && newStartsWithPunctuation) {
+        return trimmedCurrent + trimmedNew;
+      }
+      
+      // If current ends with opening punctuation (like '(' or '['), attach directly
+      if (/[(\[{]$/.test(trimmedCurrent)) {
+        return trimmedCurrent + trimmedNew;
+      }
+      
+      // If new starts with closing punctuation (like ')' or ']'), attach directly
+      if (/^[)\]}]/.test(trimmedNew)) {
+        return trimmedCurrent + trimmedNew;
+      }
+      
+      // For all other cases, always add a space between chunks
+      // This ensures consistent spacing and prevents word merging
+      return trimmedCurrent + ' ' + trimmedNew;
     }
     
     // If it's a tool call or result, append to show progress
@@ -531,9 +881,40 @@ export default function ChatInterface() {
   }
 
   return (
-    <div className="glass rounded-xl shadow-lg w-full h-[600px] flex flex-col overflow-hidden">
+    <div className="glass rounded-xl shadow-lg w-full h-full flex flex-col overflow-hidden">
+      {/* Connection Status Bar - Top */}
+      <div className="flex-shrink-0 px-4 py-2 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-color)', background: 'rgba(0, 0, 0, 0.2)' }}>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-secondary font-medium uppercase tracking-wider">Connection</span>
+          <button
+            type="button"
+            onClick={() => setUseWebSocket(!useWebSocket)}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
+              useWebSocket
+                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+            }`}
+          >
+            {useWebSocket ? 'WebSocket' : 'SSE'}
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          {useWebSocket && wsRef.current ? (
+            <span className={`flex items-center gap-1.5 text-xs font-medium ${wsRef.current.readyState === WebSocket.OPEN ? 'text-emerald-400' : 'text-red-400'}`}>
+              <span className={`w-2 h-2 rounded-full ${wsRef.current.readyState === WebSocket.OPEN ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`}></span>
+              {wsRef.current.readyState === WebSocket.OPEN ? 'Connected' : 'Disconnected'}
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
+              <span className="w-2 h-2 rounded-full bg-gray-500"></span>
+              Not Connected
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
         {serverConnected === false && (
           <div className="glass rounded-xl p-4 mb-4 border-2" style={{ borderColor: 'rgba(239, 68, 68, 0.3)' }}>
             <div className="flex items-start gap-3">
@@ -636,27 +1017,7 @@ export default function ChatInterface() {
       </div>
 
       {/* Input Form */}
-      <div className="border-t p-4 glass" style={{ borderColor: 'var(--border-color)' }}>
-        {/* Connection Mode Toggle */}
-        <div className="flex items-center gap-2 mb-3 text-xs text-secondary">
-          <span>Connection:</span>
-          <button
-            type="button"
-            onClick={() => setUseWebSocket(!useWebSocket)}
-            className={`px-2 py-1 rounded ${
-              useWebSocket
-                ? 'bg-blue-500/20 text-blue-400'
-                : 'bg-gray-500/20 text-gray-400'
-            }`}
-          >
-            {useWebSocket ? 'WebSocket' : 'SSE'}
-          </button>
-          {useWebSocket && wsRef.current && (
-            <span className={`text-xs ${wsRef.current.readyState === WebSocket.OPEN ? 'text-green-400' : 'text-red-400'}`}>
-              {wsRef.current.readyState === WebSocket.OPEN ? '● Connected' : '● Disconnected'}
-            </span>
-          )}
-        </div>
+      <div className="flex-shrink-0 border-t p-4 glass" style={{ borderColor: 'var(--border-color)' }}>
         <form onSubmit={handleSubmit} className="flex gap-3">
           <input
             ref={inputRef}

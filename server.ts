@@ -34,10 +34,33 @@ async function loadEnvFile(): Promise<void> {
 // Helper function to safely get environment variables
 function getRequiredEnv(name: string): string {
   const value = Deno.env.get(name);
-  if (!value) {
-    throw new Error(`Environment variable ${name} is not set`);
+  if (!value || value.trim() === "") {
+    throw new Error(
+      `Environment variable ${name} is not set or is empty.\n` +
+      `Please check your .env file or environment variables.\n` +
+      `For Anthropic API key, get one at: https://console.anthropic.com/`
+    );
   }
-  return value;
+  
+  // Validate Anthropic API key format
+  if (name === "ANTHROPIC_API_KEY") {
+    const trimmedValue = value.trim();
+    if (!trimmedValue.startsWith("sk-ant-")) {
+      console.warn(
+        `⚠️  Warning: ANTHROPIC_API_KEY doesn't start with "sk-ant-". ` +
+        `This might indicate an invalid key format.`
+      );
+    }
+    if (trimmedValue.length < 20) {
+      throw new Error(
+        `ANTHROPIC_API_KEY appears to be invalid (too short). ` +
+        `Please verify your API key at: https://console.anthropic.com/`
+      );
+    }
+    return trimmedValue;
+  }
+  
+  return value.trim();
 }
 
 // Initialize agent (singleton pattern)
@@ -51,32 +74,54 @@ async function getAgent(): Promise<ZypherAgent> {
   // Load .env file before proceeding
   await loadEnvFile();
 
-  // Initialize the agent execution context
-  const zypherContext = await createZypherContext(Deno.cwd());
+  // Validate API keys before proceeding
+  const anthropicKey = getRequiredEnv("ANTHROPIC_API_KEY");
+  const firecrawlKey = getRequiredEnv("FIRECRAWL_API_KEY");
 
-  // Create the agent with your preferred LLM provider
-  const agent = new ZypherAgent(
-    zypherContext,
-    new AnthropicModelProvider({
-      apiKey: getRequiredEnv("ANTHROPIC_API_KEY"),
-    }),
-  );
+  try {
+    // Initialize the agent execution context
+    const zypherContext = await createZypherContext(Deno.cwd());
 
-  // Register and connect to an MCP server to give the agent web crawling capabilities
-  await agent.mcp.registerServer({
-    id: "firecrawl",
-    type: "command",
-    command: {
-      command: "npx",
-      args: ["-y", "firecrawl-mcp"],
-      env: {
-        FIRECRAWL_API_KEY: getRequiredEnv("FIRECRAWL_API_KEY"),
+    // Create the agent with your preferred LLM provider
+    const agent = new ZypherAgent(
+      zypherContext,
+      new AnthropicModelProvider({
+        apiKey: anthropicKey,
+      }),
+    );
+
+    // Register and connect to an MCP server to give the agent web crawling capabilities
+    await agent.mcp.registerServer({
+      id: "firecrawl",
+      type: "command",
+      command: {
+        command: "npx",
+        args: ["-y", "firecrawl-mcp"],
+        env: {
+          FIRECRAWL_API_KEY: firecrawlKey,
+        },
       },
-    },
-  });
+    });
 
-  agentInstance = agent;
-  return agent;
+    agentInstance = agent;
+    return agent;
+  } catch (error) {
+    // Provide helpful error messages for authentication failures
+    if (error instanceof Error) {
+      const errorMsg = error.message.toLowerCase();
+      if (errorMsg.includes("authentication") || errorMsg.includes("api-key") || errorMsg.includes("401")) {
+        throw new Error(
+          `❌ Authentication failed: Invalid ANTHROPIC_API_KEY\n\n` +
+          `Please verify your API key:\n` +
+          `1. Check your .env file has: ANTHROPIC_API_KEY=sk-ant-...\n` +
+          `2. Get a valid key at: https://console.anthropic.com/\n` +
+          `3. Ensure the key is not expired or revoked\n\n` +
+          `Original error: ${error.message}`
+        );
+      }
+    }
+    throw error;
+  }
 }
 
 // Check if query is asking to research a specific person
@@ -171,22 +216,7 @@ function isResearchQuery(query: string): boolean {
 
 // Simple conversation response
 function createSimpleConversationTask(query: string): string {
-  return `You are a friendly AI research assistant specialized in finding comprehensive information about people. 
-
-The user said: "${query}"
-
-IMPORTANT RULES:
-1. This is a simple conversation - DO NOT use any tools, functions, or web search
-2. Respond directly and naturally in 1-3 sentences
-3. Be friendly, helpful, and conversational
-4. If the user is asking what you can do, explain that you can research people by providing their name
-5. If the user is greeting you, greet them back and offer to help
-6. If the user is asking a general question, answer it naturally without using tools
-7. Do NOT mention coding, programming, or being a coding assistant
-8. You are a PERSON RESEARCH AGENT - you help find information about individuals
-9. Only use web search tools when the user provides a specific person's name to research
-
-Respond now naturally without using any tools:`;
+  return `You are a friendly AI research assistant. The user said: "${query}". Respond in 1-2 short sentences. Be warm and helpful. For greetings, greet back and mention you help research people. Do NOT use tools. Only provide your response - no instructions or prompts.`;
 }
 
 // Person information gathering task with self-autonomy
@@ -267,6 +297,153 @@ function getAgentStatus(event: any): string {
   return 'Processing...';
 }
 
+// Helper function to clean response by removing task prompt echoes
+// This should be called on streaming chunks - keep it simple, no sentence splitting
+function cleanAgentResponse(text: string): string {
+  if (!text) return text;
+  
+  // Remove the task prompt if the agent echoed it back
+  const promptPatterns = [
+    /^You are a friendly AI research assistant.*?Only provide your response.*?$/s,
+    /^You are a friendly AI research assistant.*?Do NOT use tools.*?$/s,
+    /^The user said:.*?"/s,
+  ];
+  
+  for (const pattern of promptPatterns) {
+    text = text.replace(pattern, '');
+  }
+  
+  // Remove trailing instruction echoes (but don't split sentences)
+  text = text.replace(/Do NOT use.*?$/s, '');
+  text = text.replace(/Only provide.*?$/s, '');
+  text = text.replace(/Respond.*?sentences.*?$/s, '');
+  
+  // Fix periods in the middle of words (e.g., "here.to" -> "here to")
+  // This happens when streaming breaks text incorrectly
+  text = text.replace(/([a-z])\.([a-z])/gi, '$1 $2');
+  // Fix merged words: lowercase letter followed by uppercase letter (e.g., "yourAI" -> "your AI")
+  text = text.replace(/([a-z])([A-Z])/g, '$1 $2');
+  // Fix merged words: uppercase word followed by lowercase word (e.g., "Hithere" -> "Hi there")
+  text = text.replace(/([A-Z][a-z]+)([a-z]{2,})/g, (match, p1, p2) => {
+    const commonWords = ['there', 'here', 'with', 'your', 'any', 'can', 'the', 'and', 'for', 'are', 'was', 'has', 'had', 'not', 'but', 'you', 'all', 'how', 'what', 'when', 'where', 'this', 'that', 'from', 'have', 'will', 'would', 'could', 'should'];
+    if (commonWords.includes(p2.toLowerCase()) || p2.length >= 3) {
+      return p1 + ' ' + p2;
+    }
+    return match;
+  });
+  
+  return text.trim();
+}
+
+// Clean final message to remove duplicates (only call this on complete messages)
+function cleanFinalMessage(text: string): string {
+  if (!text) return text;
+  
+  // First, remove prompt echoes
+  text = cleanAgentResponse(text);
+  
+  // Fix any remaining formatting issues
+  // Fix periods in middle of words
+  text = text.replace(/([a-z])\.([a-z])/gi, '$1 $2');
+  // Fix merged words: lowercase letter followed by uppercase letter (e.g., "yourAI" -> "your AI")
+  text = text.replace(/([a-z])([A-Z])/g, '$1 $2');
+  // Fix merged words: uppercase word followed by lowercase word (e.g., "Hithere" -> "Hi there")
+  text = text.replace(/([A-Z][a-z]+)([a-z]{2,})/g, (match, p1, p2) => {
+    const commonWords = ['there', 'here', 'with', 'your', 'any', 'can', 'the', 'and', 'for', 'are', 'was', 'has', 'had', 'not', 'but', 'you', 'all', 'how', 'what', 'when', 'where', 'this', 'that', 'from', 'have', 'will', 'would', 'could', 'should'];
+    if (commonWords.includes(p2.toLowerCase()) || p2.length >= 3) {
+      return p1 + ' ' + p2;
+    }
+    return match;
+  });
+  // Fix merged words: common patterns
+  const commonWordPatterns = [
+    /(with)(any|your|the|a|an|this|that|these|those)/gi,
+    /(how)(can|could|should|will|would|do|did|does|is|are|was|were)/gi,
+    /(what)(is|are|was|were|do|did|does|can|could|should|will|would)/gi,
+    /(your)(coding|programming|code|project|work|task|question|issue|problem)/gi,
+    /(any)(programming|coding|code|task|question|issue|problem|help|assistance)/gi,
+  ];
+  for (const pattern of commonWordPatterns) {
+    text = text.replace(pattern, '$1 $2');
+  }
+  // Fix "Hithere", "Howcan", etc. (capitalized word + lowercase word)
+  text = text.replace(/([A-Z][a-z]{1,2})([a-z]{2,})/g, (match, p1, p2) => {
+    const commonWords = ['there', 'here', 'can', 'will', 'would', 'could', 'should', 'have', 'with', 'your', 'any', 'the', 'and', 'for', 'are', 'was', 'has', 'had', 'not', 'but', 'you', 'all', 'how', 'what', 'when', 'where', 'this', 'that', 'from'];
+    if (commonWords.includes(p2.toLowerCase())) {
+      return p1 + ' ' + p2;
+    }
+    return match;
+  });
+  // Fix lowercase-to-lowercase merges like "withany", "withyour", "codingassistant"
+  text = text.replace(/([a-z]{2,})([a-z]{3,})/g, (match, p1, p2) => {
+    const word1 = p1.toLowerCase();
+    const word2 = p2.toLowerCase();
+    const commonFirst = ['with', 'your', 'any', 'the', 'and', 'for', 'are', 'was', 'has', 'had', 'not', 'but', 'you', 'all', 'how', 'what', 'when', 'where', 'this', 'that', 'from', 'have', 'will', 'would', 'could', 'should', 'there', 'here', 'can'];
+    const commonSecond = ['any', 'your', 'the', 'and', 'for', 'are', 'was', 'has', 'had', 'not', 'but', 'you', 'all', 'how', 'what', 'when', 'where', 'this', 'that', 'from', 'have', 'will', 'would', 'could', 'should', 'there', 'here', 'can', 'coding', 'programming', 'assistant', 'tasks', 'questions', 'today'];
+    const commonEndings = ['ing', 'ed', 'er', 'ly', 'tion', 'sion', 'ment', 'ness', 'ful', 'less', 'ist', 'ism'];
+    
+    if (commonFirst.includes(word1) || commonSecond.includes(word2) || 
+        commonEndings.some(ending => word1.endsWith(ending))) {
+      return p1 + ' ' + p2;
+    }
+    return match;
+  });
+  // Normalize multiple spaces
+  text = text.replace(/\s+/g, ' ');
+  // Fix spacing around punctuation
+  text = text.replace(/\s+([.!?,])/g, '$1');
+  text = text.replace(/([.!?])\s*([a-z])/gi, '$1 $2');
+  
+  // Remove duplicate content - split by sentence boundaries more carefully
+  const sentences = text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 0);
+  const uniqueSentences: string[] = [];
+  const seen = new Set<string>();
+  
+  // Normalize function: remove spaces and punctuation for comparison
+  // This makes "Hithere" and "Hi there" identical for duplicate detection
+  const normalizeForComparison = (s: string): string => {
+    return s.toLowerCase()
+      .replace(/\s+/g, '')  // Remove all spaces
+      .replace(/[.!?,:;'"-]/g, '')  // Remove punctuation
+      .trim();
+  };
+  
+  for (const sentence of sentences) {
+    const normalized = normalizeForComparison(sentence);
+    
+    // Check for duplicates
+    let isDuplicate = false;
+    for (const seenNormalized of seen) {
+      // If normalized versions are identical, consider duplicate
+      if (normalized === seenNormalized) {
+        isDuplicate = true;
+        break;
+      }
+      // Check if one contains the other (for partial duplicates)
+      const shorter = normalized.length < seenNormalized.length ? normalized : seenNormalized;
+      const longer = normalized.length < seenNormalized.length ? seenNormalized : normalized;
+      if (shorter.length > 10 && longer.includes(shorter)) {
+        // If shorter is >80% of longer, consider duplicate
+        if (shorter.length / longer.length > 0.8) {
+          isDuplicate = true;
+          break;
+        }
+      }
+    }
+    
+    if (!isDuplicate) {
+      uniqueSentences.push(sentence);
+      seen.add(normalized);
+    }
+  }
+  
+  // Rejoin with proper spacing
+  let result = uniqueSentences.join(' ').trim();
+  // Final cleanup: ensure space after periods
+  result = result.replace(/([.!?])([a-z])/gi, '$1 $2');
+  return result;
+}
+
 // Helper function to extract message content from events
 function extractMessageFromEvent(event: any): { text: string; status?: string } {
   let text = '';
@@ -291,6 +468,9 @@ function extractMessageFromEvent(event: any): { text: string; status?: string } 
   } else if (event.message && typeof event.message === 'string') {
     text = event.message;
   }
+  
+  // Clean the response to remove any echoed task prompts
+  text = cleanAgentResponse(text);
   
   // Get status for tool calls
   if (event.type === 'tool_call' || event.type === 'tool_result') {
@@ -383,6 +563,9 @@ async function handleRequest(request: Request): Promise<Response> {
                 }
               }
               
+              // Only do basic cleaning on streaming chunks (no sentence splitting)
+              messageText = cleanAgentResponse(messageText);
+              
               if (messageText && messageText.trim()) {
                 socket.send(JSON.stringify({
                   type: "message",
@@ -390,6 +573,11 @@ async function handleRequest(request: Request): Promise<Response> {
                   eventType: agentEvent.type || 'unknown',
                   timestamp: Date.now()
                 }));
+              }
+              
+              // On completion, send a cleaned final version
+              if (agentEvent.type === 'task_complete' || agentEvent.type === 'completed') {
+                // Final cleanup will be done on frontend when message is complete
               }
               
               // Send tool call information
@@ -442,9 +630,28 @@ async function handleRequest(request: Request): Promise<Response> {
             }
           } catch (error) {
             console.error("[WebSocket] Error processing task:", error);
+            
+            // Check for authentication errors
+            let errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+            const errorStr = errorMessage.toLowerCase();
+            
+            if (errorStr.includes("authentication") || 
+                errorStr.includes("api-key") || 
+                errorStr.includes("invalid x-api-key") ||
+                errorStr.includes("401")) {
+              errorMessage = 
+                `❌ Authentication Error: Invalid API Key\n\n` +
+                `Your ANTHROPIC_API_KEY appears to be invalid or expired.\n` +
+                `Please:\n` +
+                `1. Check your .env file has a valid key\n` +
+                `2. Get a new key at: https://console.anthropic.com/\n` +
+                `3. Restart the server after updating the key\n\n` +
+                `Original error: ${errorMessage}`;
+            }
+            
             socket.send(JSON.stringify({
               type: "error",
-              message: error instanceof Error ? error.message : "Unknown error occurred",
+              message: errorMessage,
               timestamp: Date.now()
             }));
           }
@@ -628,6 +835,33 @@ async function handleRequest(request: Request): Promise<Response> {
               // Filter out non-fatal MCP tool errors - they're logged but don't stop execution
               if (event.type === 'tool_error' || event.type === 'error') {
                 const eventStr = JSON.stringify(event);
+                const errorMsg = (event.message || event.error || eventStr || '').toLowerCase();
+                
+                // Check for authentication errors - these are FATAL and should stop execution
+                if (errorMsg.includes('authentication') || 
+                    errorMsg.includes('api-key') || 
+                    errorMsg.includes('invalid x-api-key') ||
+                    errorMsg.includes('401') ||
+                    (errorMsg.includes('status') && errorMsg.includes('401'))) {
+                  console.error(`[FATAL] Authentication error detected:`, event);
+                  const authError = JSON.stringify({
+                    type: 'fatal_authentication_error',
+                    message: 
+                      `❌ Authentication Error: Invalid API Key\n\n` +
+                      `Your ANTHROPIC_API_KEY appears to be invalid or expired.\n` +
+                      `Please:\n` +
+                      `1. Check your .env file has a valid key\n` +
+                      `2. Get a new key at: https://console.anthropic.com/\n` +
+                      `3. Restart the server after updating the key\n\n` +
+                      `Original error: ${event.message || event.error || 'Authentication failed'}`,
+                    timestamp: Date.now()
+                  });
+                  safeEnqueue(`data: ${authError}\n\n`);
+                  taskCompleted = true;
+                  safeClose();
+                  break;
+                }
+                
                 // Check if it's a Firecrawl parameter validation error (non-fatal)
                 if (eventStr.includes('parameter validation failed') || 
                     eventStr.includes('McpError') ||
@@ -703,8 +937,27 @@ async function handleRequest(request: Request): Promise<Response> {
             }
             taskCompleted = true;
             console.error(`[Fatal Error]`, error);
+            
+            // Check for authentication errors
+            let errorMessage = error instanceof Error ? error.message : "Unknown error";
+            const errorStr = errorMessage.toLowerCase();
+            
+            if (errorStr.includes("authentication") || 
+                errorStr.includes("api-key") || 
+                errorStr.includes("invalid x-api-key") ||
+                errorStr.includes("401")) {
+              errorMessage = 
+                `❌ Authentication Error: Invalid API Key\n\n` +
+                `Your ANTHROPIC_API_KEY appears to be invalid or expired.\n` +
+                `Please:\n` +
+                `1. Check your .env file has a valid key\n` +
+                `2. Get a new key at: https://console.anthropic.com/\n` +
+                `3. Restart the server after updating the key\n\n` +
+                `Original error: ${errorMessage}`;
+            }
+            
             const errorData = JSON.stringify({ 
-              error: error instanceof Error ? error.message : "Unknown error",
+              error: errorMessage,
               type: "fatal_error"
             });
             safeEnqueue(`data: ${errorData}\n\n`);
@@ -722,12 +975,46 @@ async function handleRequest(request: Request): Promise<Response> {
         },
       });
     } catch (error) {
+      // Check for authentication errors
+      let errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorStr = errorMessage.toLowerCase();
+      let statusCode = 500;
+      
+      if (errorStr.includes("authentication") || 
+          errorStr.includes("api-key") || 
+          errorStr.includes("invalid x-api-key") ||
+          errorStr.includes("401") ||
+          errorStr.includes("environment variable") && errorStr.includes("not set")) {
+        statusCode = 401;
+        if (errorStr.includes("not set") || errorStr.includes("empty")) {
+          errorMessage = 
+            `❌ Missing API Key\n\n` +
+            `The ANTHROPIC_API_KEY environment variable is not set.\n` +
+            `Please:\n` +
+            `1. Create a .env file in the project root\n` +
+            `2. Add: ANTHROPIC_API_KEY=sk-ant-your-key-here\n` +
+            `3. Get a key at: https://console.anthropic.com/\n` +
+            `4. Restart the server\n\n` +
+            `Original error: ${errorMessage}`;
+        } else {
+          errorMessage = 
+            `❌ Authentication Error: Invalid API Key\n\n` +
+            `Your ANTHROPIC_API_KEY appears to be invalid or expired.\n` +
+            `Please:\n` +
+            `1. Check your .env file has a valid key\n` +
+            `2. Get a new key at: https://console.anthropic.com/\n` +
+            `3. Restart the server after updating the key\n\n` +
+            `Original error: ${errorMessage}`;
+        }
+      }
+      
       return new Response(
         JSON.stringify({ 
-          error: error instanceof Error ? error.message : "Unknown error" 
+          error: errorMessage,
+          type: statusCode === 401 ? "authentication_error" : "server_error"
         }),
         {
-          status: 500,
+          status: statusCode,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
