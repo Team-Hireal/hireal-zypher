@@ -3,6 +3,7 @@
 /**
  * Postinstall script to install @zypher/agent from JSR
  * This script attempts to install the package using various methods
+ * On Vercel/CI environments without Deno, it will skip installation gracefully
  */
 
 const fs = require('fs');
@@ -12,6 +13,16 @@ const { execSync } = require('child_process');
 const PACKAGE_NAME = '@zypher/agent';
 const PACKAGE_VERSION = '^0.7.3';
 const JSR_PACKAGE = `jsr:@zypher/agent@${PACKAGE_VERSION.replace('^', '')}`;
+
+// Check if we're in a CI/Vercel environment where Deno isn't available
+const isCI = process.env.CI === 'true' || process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+
+if (isCI) {
+  console.log(`📦 Detected CI/Vercel environment - skipping Zypher agent installation`);
+  console.log(`⚠️  Note: @zypher/agent requires Deno runtime and won't work in this environment`);
+  console.log(`   For production use, consider deploying with Deno Deploy or a Deno-compatible host`);
+  process.exit(0);
+}
 
 console.log(`Attempting to install ${PACKAGE_NAME} from JSR...`);
 
