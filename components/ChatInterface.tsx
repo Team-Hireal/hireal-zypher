@@ -272,7 +272,20 @@ export default function ChatInterface() {
       })
 
       if (!response.ok) {
-        throw new Error(`Server responded with status ${response.status}`)
+        // Try to read the error message from the response body
+        let errorMessage = `Server responded with status ${response.status}`
+        try {
+          const errorData = await response.json()
+          if (errorData && errorData.error) {
+            errorMessage = errorData.error
+          } else if (errorData && typeof errorData === 'string') {
+            errorMessage = errorData
+          }
+        } catch (parseError) {
+          // If we can't parse the error, use the status text
+          errorMessage = response.statusText || errorMessage
+        }
+        throw new Error(errorMessage)
       }
 
       if (!response.body) {
