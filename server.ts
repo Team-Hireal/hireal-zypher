@@ -715,6 +715,7 @@ async function handleRequest(request: Request): Promise<Response> {
       console.log(`[Request] Query: "${personName}" | Type: ${isResearch ? 'Research' : 'Conversation'}`);
       
       // Create a readable stream for Server-Sent Events
+      const encoder = new TextEncoder();
       const stream = new ReadableStream({
         async start(controller) {
           let lastActivity = Date.now();
@@ -725,10 +726,10 @@ async function handleRequest(request: Request): Promise<Response> {
           const safeEnqueue = (data: string) => {
             if (!streamClosed) {
               try {
-                controller.enqueue(data);
+                controller.enqueue(encoder.encode(data));
                 lastActivity = Date.now();
               } catch (e) {
-                console.warn('[Stream] Failed to enqueue, stream may be closed');
+                console.warn('[Stream] Failed to enqueue, stream may be closed:', e);
                 streamClosed = true;
               }
             }
