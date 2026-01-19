@@ -191,6 +191,16 @@ Health check endpoint.
 
 ## Deployment
 
+### Hosted Deno Backend
+
+The `/api/research` proxy routes depend on the Deno server (`server.ts`) being reachable from the deployed frontend. Run that server on any platform that exposes a public HTTPS endpoint (e.g., [Deno Deploy](https://deno.com/deploy), Railway, Render, Fly, or any VM) and point the frontend at it via the `DENO_SERVER_URL` environment variable.
+
+1. Deploy `server.ts` with its required env vars (`ANTHROPIC_API_KEY`, `FIRECRAWL_API_KEY`, `PORT` is optional) on the host of your choice.
+2. Copy the public URL (for example `https://hireal-zypher-deno.team-hireal.deno.net`).
+3. In your frontend deployment (Team Hireal preview/production, Vercel, etc.) set `DENO_SERVER_URL` to that URL so the API routes proxy to the hosted Deno server instead of `http://localhost:8000`.
+
+The local `.env` uses `http://localhost:8000` so you can develop against `deno task server` safely, but every production build must have `DENO_SERVER_URL` configured or the health/research endpoints will fail with CORS/connection errors.
+
 ### Vercel Deployment
 
 This project is configured for deployment on Vercel. See [VERCEL_DEPLOY.md](./VERCEL_DEPLOY.md) for detailed deployment instructions.

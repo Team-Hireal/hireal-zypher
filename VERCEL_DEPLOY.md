@@ -29,6 +29,7 @@ In the Vercel project settings, add the following environment variables:
 
 - `ANTHROPIC_API_KEY` - Your Anthropic API key (starts with `sk-ant-`)
 - `FIRECRAWL_API_KEY` - Your Firecrawl API key
+- `DENO_SERVER_URL` - The public URL of the hosted Deno backend (`server.ts`). Without it the API routes default to `http://localhost:8000` and will fail when the frontend runs on Team Hireal/Vercel.
 
 **To add environment variables:**
 1. Go to your project settings in Vercel
@@ -138,6 +139,8 @@ For local development, create a `.env` file in the root directory:
 ANTHROPIC_API_KEY=sk-ant-your-key-here
 FIRECRAWL_API_KEY=your-firecrawl-api-key-here
 PORT=8000
+# Optional: only set this if you want the frontend to hit a deployed Deno host instead of your local one.
+DENO_SERVER_URL=http://localhost:8000
 ```
 
 Then run:

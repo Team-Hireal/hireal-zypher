@@ -44,7 +44,7 @@ export default function ChatInterface() {
   }, [messages]);
 
   useEffect(() => {
-    fetch('http://localhost:8000/health')
+    fetch('/api/health')
       .then(res => setServerConnected(res.ok))
       .catch(() => setServerConnected(false));
   }, []);
@@ -148,7 +148,7 @@ export default function ChatInterface() {
     ]);
 
     try {
-      const response = await fetch('http://localhost:8000/api/research', {
+      const response = await fetch('/api/research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ personName: query }),

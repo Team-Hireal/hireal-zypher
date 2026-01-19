@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
+import { resolveDenoServerUrl } from "@/utils/denoServer";
 
-// Proxy to Deno server
-// The Deno server runs on port 8000 and handles the actual agent logic
-const DENO_SERVER_URL = process.env.DENO_SERVER_URL || 'http://localhost:8000';
+// Check if we're on Vercel (where Deno serverless functions are available)
+const isVercel = process.env.VERCEL === "1";
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,11 +19,66 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[API] Proxying request to Deno server: "${personName}"`);
-    
+    // On Vercel, use Deno serverless functions directly
+    if (isVercel) {
+      const protocol = request.headers.get("x-forwarded-proto") || "https";
+      const host = request.headers.get("host") || "";
+      const baseUrl = `${protocol}://${host}`;
+      const denoFunctionUrl = `${baseUrl}/api/research-deno`;
+      
+      console.log(
+        `[API] Proxying to Deno serverless function at ${denoFunctionUrl}: "${personName}"`,
+      );
+
+      try {
+        const denoResponse = await fetch(denoFunctionUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ personName }),
+        });
+
+        if (!denoResponse.ok) {
+          const errorText = await denoResponse.text();
+          let errorMessage = `Deno serverless function responded with status ${denoResponse.status}`;
+          try {
+            const errorData = JSON.parse(errorText);
+            if (errorData.error) {
+              errorMessage = errorData.error;
+            }
+          } catch {
+            errorMessage = errorText || errorMessage;
+          }
+          throw new Error(errorMessage);
+        }
+
+        if (!denoResponse.body) {
+          throw new Error("Deno serverless function response body is null");
+        }
+
+        return new Response(denoResponse.body, {
+          headers: {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+          },
+        });
+      } catch (fetchError) {
+        console.error(`[API] Error calling Deno serverless function:`, fetchError);
+        throw fetchError;
+      }
+    }
+
+    // Local development: proxy to external Deno server
+    const denoServerUrl = resolveDenoServerUrl();
+    console.log(
+      `[API] Proxying request to Deno server at ${denoServerUrl}: "${personName}"`,
+    );
+
     // Proxy the request to the Deno server
     try {
-      const denoResponse = await fetch(`${DENO_SERVER_URL}/api/research`, {
+      const denoResponse = await fetch(`${denoServerUrl}/api/research`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -76,13 +131,13 @@ export async function POST(request: NextRequest) {
       console.error(`[API] Error connecting to Deno server:`, fetchError);
       
       // Check if it's a connection error
-      if (fetchError instanceof TypeError && 
-          (fetchError.message.includes('fetch') || 
+      if (fetchError instanceof TypeError &&
+          (fetchError.message.includes('fetch') ||
            fetchError.message.includes('ECONNREFUSED') ||
            fetchError.message.includes('Failed to fetch'))) {
         throw new Error(
           `❌ Cannot connect to Deno server\n\n` +
-          `The Deno server is not running or not reachable at ${DENO_SERVER_URL}.\n\n` +
+          `The Deno server is not running or not reachable at ${denoServerUrl}.\n\n` +
           `Please start the Deno server in a separate terminal:\n` +
           `  deno task server\n\n` +
           `Or if the server is running on a different URL, set the DENO_SERVER_URL environment variable.`
