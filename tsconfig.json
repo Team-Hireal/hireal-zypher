@@ -18,12 +18,20 @@
         "name": "next"
       }
     ],
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@zypher/agent": ["types/zypher-agent"]
     },
     "typeRoots": ["./node_modules/@types", "./types"]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "app/**/*",
+    "components/**/*",
+    "utils/**/*",
+    "types/**/*.d.ts"
+  ],
   "exclude": ["node_modules", "main.ts", "server.ts"]
 }
 
