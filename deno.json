@@ -8,6 +8,6 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "exclude": ["node_modules", ".next"]
+  "exclude": ["node_modules", ".next", ".vercel"]
 }
 

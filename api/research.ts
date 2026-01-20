@@ -1,4 +1,4 @@
-import { eachValueFrom } from "npm:rxjs-for-await@^1.0.0";
+import { eachValueFrom } from "npm:rxjs-for-await@1.0.0";
 import { SentenceBuffer } from "../utils/textFilter.ts";
 import { buildToolDisplayWithDetail, simplifyToolError } from "../utils/toolUtils.ts";
 
@@ -16,7 +16,7 @@ async function getAgent(): Promise<any> {
   if (agent) return agent;
 
   // Use explicit JSR URL for better compatibility with Vercel Deno builder
-  const { AnthropicModelProvider, createZypherContext, ZypherAgent } = await import("jsr:@zypher/agent@^0.7.3");
+  const { AnthropicModelProvider, createZypherContext, ZypherAgent } = await import("jsr:@zypher/agent@0.7.3");
 
   const anthropicKey = getRequiredEnv("ANTHROPIC_API_KEY");
   const firecrawlKey = getRequiredEnv("FIRECRAWL_API_KEY");
