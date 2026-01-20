@@ -15,8 +15,8 @@ let agent: any = null;
 async function getAgent(): Promise<any> {
   if (agent) return agent;
 
-  // Use explicit JSR URL for better compatibility with Vercel Deno builder
-  const { AnthropicModelProvider, createZypherContext, ZypherAgent } = await import("jsr:@zypher/agent@0.7.3");
+  // Use standard JSR import
+  const { AnthropicModelProvider, createZypherContext, ZypherAgent } = await import("jsr:@zypher/agent@^0.7.3");
 
   const anthropicKey = getRequiredEnv("ANTHROPIC_API_KEY");
   const firecrawlKey = getRequiredEnv("FIRECRAWL_API_KEY");

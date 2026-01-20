@@ -12,11 +12,11 @@
   "rewrites": [
     {
       "source": "/api/research-deno",
-      "destination": "/api/research.ts"
+      "destination": "/api/deno_research"
     },
     {
       "source": "/health-deno",
-      "destination": "/api/health-deno.ts"
+      "destination": "/api/deno_health"
     }
   ]
 }

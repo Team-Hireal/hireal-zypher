@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       const protocol = request.headers.get("x-forwarded-proto") || "https";
       const host = request.headers.get("host") || "";
       const baseUrl = `${protocol}://${host}`;
-      const denoFunctionUrl = `${baseUrl}/api/research-deno`;
+      const denoFunctionUrl = `${baseUrl}/api/deno_research`;
       
       console.log(
         `[API] Proxying to Deno serverless function at ${denoFunctionUrl}: "${personName}"`,

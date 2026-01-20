@@ -34,7 +34,7 @@ export async function GET() {
 
     // Check if the Deno function is actually reachable
     try {
-      const healthUrl = `https://${process.env.VERCEL_URL}/health-deno`;
+      const healthUrl = `https://${process.env.VERCEL_URL}/api/deno_health`;
       
       console.log(`[Health] Pinging Deno health endpoint at: ${healthUrl}`);
       const denoRes = await fetch(healthUrl);

@@ -150,9 +150,8 @@ export default function ChatInterface() {
     ]);
 
     try {
-      // Determine research endpoint
-      const isVercel = window.location.hostname.includes('vercel.app');
-      const endpoint = isVercel ? '/api/research-deno' : '/api/research';
+      // Use the Next.js API route as a proxy
+      const endpoint = '/api/research';
 
       const response = await fetch(endpoint, {
         method: 'POST',
