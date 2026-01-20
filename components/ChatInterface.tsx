@@ -2,7 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react'
 import SearchStatus, { useToolStatus } from './SearchStatus'
-import MarkdownRenderer from './MarkdownRenderer'
+import dynamic from 'next/dynamic'
+
+const MarkdownRenderer = dynamic(() => import('./MarkdownRenderer'), { ssr: false })
 
 interface Message {
   id: string;
@@ -148,7 +150,11 @@ export default function ChatInterface() {
     ]);
 
     try {
-      const response = await fetch('/api/research', {
+      // Determine research endpoint
+      const isVercel = window.location.hostname.includes('vercel.app');
+      const endpoint = isVercel ? '/api/research-deno' : '/api/research';
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ personName: query }),

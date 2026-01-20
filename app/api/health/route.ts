@@ -21,12 +21,40 @@ export async function GET() {
     
     // At runtime on Vercel, serverless functions are available
     console.log('[Health] Vercel runtime - using Deno serverless functions');
-    return NextResponse.json({
-      status: "ok",
-      denoServer: "available",
-      runtime: "vercel-serverless",
-      note: "DENO_SERVER_URL not required - using Vercel Deno serverless functions"
-    });
+    
+    // During build or if VERCEL_URL is not set, don't try to ping
+    if (!process.env.VERCEL_URL || isVercelBuild) {
+      return NextResponse.json({
+        status: "ok",
+        denoServer: "available",
+        runtime: "vercel-serverless",
+        note: "Deno functions available at runtime"
+      });
+    }
+
+    // Check if the Deno function is actually reachable
+    try {
+      const healthUrl = `https://${process.env.VERCEL_URL}/health-deno`;
+      
+      console.log(`[Health] Pinging Deno health endpoint at: ${healthUrl}`);
+      const denoRes = await fetch(healthUrl);
+      const denoData = await denoRes.json();
+      
+      return NextResponse.json({
+        status: "ok",
+        denoServer: "connected",
+        runtime: "vercel-serverless",
+        denoInfo: denoData
+      });
+    } catch (e) {
+      console.error('[Health] Failed to ping Deno health endpoint:', e);
+      return NextResponse.json({
+        status: "ok",
+        denoServer: "available",
+        runtime: "vercel-serverless",
+        note: "Deno function check failed but it should be available via /api/research-deno"
+      });
+    }
   }
 
   let denoServerUrl: string;

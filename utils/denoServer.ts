@@ -28,6 +28,11 @@ export function resolveDenoServerUrl(): string {
     return "vercel-serverless";
   }
 
+  // During build, don't throw even in production
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    return "vercel-serverless";
+  }
+
   if (PRODUCTION_LIKE_ENV) {
     throw missingUrlError();
   }

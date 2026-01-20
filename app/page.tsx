@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import ChatInterface from '@/components/ChatInterface'
+import dynamic from 'next/dynamic'
 import Image from 'next/image'
+
+const ChatInterface = dynamic(() => import('@/components/ChatInterface'), { ssr: false })
 
 export default function Home() {
   return (
