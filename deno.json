@@ -3,6 +3,7 @@
     "start": "deno run -A main.ts",
     "server": "deno run -A server.ts"
   },
+  "nodeModulesDir": "auto",
   "imports": {
   },
   "compilerOptions": {
