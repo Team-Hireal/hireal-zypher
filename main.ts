@@ -3,7 +3,7 @@ import {
   createZypherContext,
   ZypherAgent,
 } from "@zypher/agent";
-import { eachValueFrom } from "rxjs-for-await";
+import { eachValueFrom } from "npm:rxjs-for-await";
 
 // Load environment variables from .env file if it exists
 async function loadEnvFile(): Promise<void> {
