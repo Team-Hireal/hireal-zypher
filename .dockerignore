@@ -1,0 +1,70 @@
+# Node modules
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Next.js build output
+.next/
+out/
+
+# Environment files (Railway will inject these)
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Deno cache
+.deno/
+
+# Vercel
+.vercel/
+
+# Test files
+*.test.ts
+*.spec.ts
+test/
+__tests__/
+
+# Documentation
+README.md
+*.md
+DEPLOYMENT_ACTION_PLAN.md
+START.md
+TEST_REPORT.md
+VERCEL_DEPLOY.md
+VERCEL_MONOREPO_DEPLOY.md
+
+# Scripts (not needed in production)
+scripts/
+
+# Public test files
+public/test.html
+test.html
+
+# Lock files (we copy deno.lock explicitly)
+package-lock.json
+
+# Configs not needed at runtime
+.eslintrc.json
+.eslintignore
+tsconfig.json
+postcss.config.js
+tailwind.config.js
+next.config.js
+vercel.json

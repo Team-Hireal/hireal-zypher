@@ -3,12 +3,14 @@
     "start": "deno run -A main.ts",
     "server": "deno run -A server.ts"
   },
-  "nodeModulesDir": "auto",
   "imports": {
+    "@zypher/agent": "jsr:@zypher/agent@^0.7.3",
+    "rxjs-for-await": "npm:rxjs-for-await@^1.0.0"
   },
   "compilerOptions": {
     "types": ["node"]
   },
+  "nodeModulesDir": "auto",
   "exclude": ["node_modules", ".next", ".vercel"]
 }
 

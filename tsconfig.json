@@ -47,6 +47,7 @@
   "exclude": [
     "node_modules",
     "main.ts",
-    "server.ts"
+    "server.ts",
+    "api/**/*"
   ]
 }

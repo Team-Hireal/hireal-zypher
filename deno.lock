@@ -9,6 +9,7 @@
     "jsr:@std/path@^1.1.3": "1.1.4",
     "jsr:@std/path@^1.1.4": "1.1.4",
     "jsr:@zypher/agent@0.7.3": "0.7.3",
+    "jsr:@zypher/agent@~0.7.3": "0.7.3",
     "npm:@anthropic-ai/sdk@~0.71.2": "0.71.2_zod@4.3.5",
     "npm:@aws-sdk/client-s3@^3.952.0": "3.971.0",
     "npm:@aws-sdk/s3-request-presigner@^3.952.0": "3.971.0",
@@ -4484,6 +4485,9 @@
     "https://deno.land/std@0.177.0/http/server.ts": "cbb17b594651215ba95c01a395700684e569c165a567e4e04bba327f41197433"
   },
   "workspace": {
+    "dependencies": [
+      "jsr:@zypher/agent@~0.7.3"
+    ],
     "packageJson": {
       "dependencies": [
         "npm:@next/eslint-plugin-next@^14.2.35",

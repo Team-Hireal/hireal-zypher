@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "node scripts/install-zypher.js || true"
+    "postinstall": "(node scripts/install-zypher.js || true) && (deno cache api/deno_research.ts api/deno_health.ts main.ts server.ts || true)"
   },
   "dependencies": {
     "next": "^14.2.0",

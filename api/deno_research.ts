@@ -176,37 +176,38 @@ export default async function handler(req: Request): Promise<Response> {
           const events = ag.runTask(task, "claude-sonnet-4-20250514");
 
           for await (const e of eachValueFrom(events)) {
-            switch (e.type) {
+            const event = e as any; // Zypher agent event type
+            switch (event.type) {
               case "text":
-                if (e.content) buffer.add(e.content);
+                if (event.content) buffer.add(event.content);
                 break;
 
               case "tool_use":
-                if (e.toolUseId && e.toolName) {
+                if (event.toolUseId && event.toolName) {
                   toolCount++;
-                  tools.set(e.toolUseId, e.toolName);
-                  toolInputs.set(e.toolUseId, "");
+                  tools.set(event.toolUseId, event.toolName);
+                  toolInputs.set(event.toolUseId, "");
                 }
                 break;
 
               case "tool_use_input":
-                if (e.toolUseId && e.partialInput) {
-                  const current = toolInputs.get(e.toolUseId) || "";
-                  toolInputs.set(e.toolUseId, current + e.partialInput);
+                if (event.toolUseId && event.partialInput) {
+                  const current = toolInputs.get(event.toolUseId) || "";
+                  toolInputs.set(event.toolUseId, current + event.partialInput);
                 }
                 break;
 
               case "tool_use_approved":
-                if (e.toolUseId && e.toolName) {
-                  const input = toolInputs.get(e.toolUseId) || "";
+                if (event.toolUseId && event.toolName) {
+                  const input = toolInputs.get(event.toolUseId) || "";
                   const displayName = buildToolDisplayWithDetail(
-                    e.toolName,
+                    event.toolName,
                     input,
                   );
                   send(
                     createEvent("tool_start", {
-                      toolId: e.toolUseId,
-                      toolName: e.toolName,
+                      toolId: event.toolUseId,
+                      toolName: event.toolName,
                       displayName,
                     }),
                   );
@@ -214,29 +215,29 @@ export default async function handler(req: Request): Promise<Response> {
                 break;
 
               case "tool_use_result":
-                if (e.toolUseId) {
+                if (event.toolUseId) {
                   send(
                     createEvent("tool_complete", {
-                      toolId: e.toolUseId,
+                      toolId: event.toolUseId,
                     }),
                   );
-                  tools.delete(e.toolUseId);
-                  toolInputs.delete(e.toolUseId);
+                  tools.delete(event.toolUseId);
+                  toolInputs.delete(event.toolUseId);
                 }
                 break;
 
               case "tool_use_error":
-                if (e.toolUseId) {
+                if (event.toolUseId) {
                   send(
                     createEvent("tool_error", {
-                      toolId: e.toolUseId,
+                      toolId: event.toolUseId,
                       message: simplifyToolError(
-                        String(e.error?.message || e.error || ""),
+                        String(event.error?.message || event.error || ""),
                       ),
                     }),
                   );
-                  tools.delete(e.toolUseId);
-                  toolInputs.delete(e.toolUseId);
+                  tools.delete(event.toolUseId);
+                  toolInputs.delete(event.toolUseId);
                 }
                 break;
 
