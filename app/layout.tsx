@@ -4,6 +4,9 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Hireal - Person Research Agent',
   description: 'Autonomous AI agent for comprehensive person research',
+  icons: {
+    icon: '/Hireal.png',
+  },
 }
 
 export default function RootLayout({
