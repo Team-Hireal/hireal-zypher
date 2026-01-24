@@ -1,5 +1,5 @@
 # Use Debian-based Deno image for better compatibility with npx and node tools
-FROM denoland/deno:debian-2.1.5
+FROM denoland/deno:debian-2
 
 # Set working directory
 WORKDIR /app
