@@ -3,21 +3,5 @@
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
-  "framework": "nextjs",
-  "functions": {
-    "api/**/*.ts": {
-      "runtime": "vercel-deno@3.1.0"
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/api/research-deno",
-      "destination": "/api/deno_research"
-    },
-    {
-      "source": "/health-deno",
-      "destination": "/api/deno_health"
-    }
-  ]
+  "framework": "nextjs"
 }
-

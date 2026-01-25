@@ -10,7 +10,7 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "nodeModulesDir": "auto",
+  "nodeModulesDir": true,
   "exclude": ["node_modules", ".next", ".vercel"]
 }
 
