@@ -82,7 +82,11 @@ export default function ChatInterface({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit(e as any);
+      // Create a synthetic form event for handleSubmit
+      const syntheticEvent = {
+        preventDefault: () => {},
+      } as React.FormEvent;
+      handleSubmit(syntheticEvent);
     }
   };
 
