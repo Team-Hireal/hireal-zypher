@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import SearchStatus, { useToolStatus } from './SearchStatus'
 import dynamic from 'next/dynamic'
+import Image from 'next/image'
 
 const MarkdownRenderer = dynamic(() => import('./MarkdownRenderer'), { ssr: false })
 
@@ -25,7 +26,17 @@ interface StreamEvent {
   toolsUsed?: number;
 }
 
-export default function ChatInterface() {
+interface ChatInterfaceProps {
+  conversationId: string | null;
+  onConversationUpdate: (id: string, title: string) => void;
+  onNewConversation: () => void;
+}
+
+export default function ChatInterface({ 
+  conversationId, 
+  onConversationUpdate, 
+  onNewConversation 
+}: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -34,6 +45,7 @@ export default function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentMessageIdRef = useRef<string | null>(null);
   const textBufferRef = useRef<string>('');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const toolStatus = useToolStatus();
 
@@ -50,6 +62,29 @@ export default function ChatInterface() {
       .then(res => setServerConnected(res.ok))
       .catch(() => setServerConnected(false));
   }, []);
+
+  // Reset messages when conversation changes
+  useEffect(() => {
+    if (!conversationId) {
+      setMessages([]);
+    }
+  }, [conversationId]);
+
+  // Auto-resize textarea
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 200) + 'px';
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e as any);
+    }
+  };
 
   const handleStreamEvent = (event: StreamEvent) => {
     console.log('[Event received]', event);
@@ -120,6 +155,11 @@ export default function ChatInterface() {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
+    // Create new conversation if none active
+    if (!conversationId) {
+      onNewConversation();
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -130,7 +170,19 @@ export default function ChatInterface() {
     setMessages(prev => [...prev, userMessage]);
     const query = input.trim();
     setInput('');
+    
+    // Reset textarea height
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+    }
+    
     setIsLoading(true);
+
+    // Update conversation title with first message
+    if (conversationId && messages.length === 0) {
+      const title = query.length > 30 ? query.substring(0, 30) + '...' : query;
+      onConversationUpdate(conversationId, title);
+    }
 
     textBufferRef.current = '';
     toolStatus.reset();
@@ -150,7 +202,6 @@ export default function ChatInterface() {
     ]);
 
     try {
-      // Use the Next.js API route as a proxy
       const endpoint = '/api/research';
 
       const response = await fetch(endpoint, {
@@ -223,55 +274,94 @@ export default function ChatInterface() {
   };
 
   return (
-    <div className="glass rounded-xl shadow-lg w-full h-full flex flex-col overflow-hidden">
-      <div
-        className="flex-shrink-0 px-4 py-2 border-b flex items-center justify-between"
-        style={{ borderColor: 'var(--border-color)', background: 'rgba(0, 0, 0, 0.2)' }}
-      >
-        <span className="text-xs text-secondary font-medium uppercase tracking-wider">
-          Research Agent
-        </span>
-        <span
-          className={`flex items-center gap-1.5 text-xs font-medium ${
-            serverConnected ? 'text-emerald-400' : 'text-gray-500'
-          }`}
-        >
-          <span
-            className={`w-2 h-2 rounded-full ${
-              serverConnected ? 'bg-emerald-400' : 'bg-gray-500'
-            }`}
-          />
-          {serverConnected ? 'Connected' : 'Disconnected'}
-        </span>
+    <div className="chat-container">
+      {/* Header */}
+      <div className="chat-header">
+        <div className="chat-header-left">
+          <span className="chat-title">Conversation</span>
+        </div>
+        <div className="chat-header-right">
+          <span className={`connection-status ${serverConnected ? 'connected' : 'disconnected'}`}>
+            <span className="status-dot" />
+            {serverConnected ? 'Online' : 'Offline'}
+          </span>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
+      {/* Messages Area */}
+      <div className="messages-container">
         {serverConnected === false && (
-          <div
-            className="glass rounded-xl p-4 mb-4 border-2"
-            style={{ borderColor: 'rgba(239, 68, 68, 0.3)' }}
-          >
-            <p className="text-sm" style={{ color: '#ef4444' }}>
-              ⚠️ Server not connected. Run: <code>deno task server</code>
-            </p>
+          <div className="server-error-banner">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 8v4M12 16h.01" />
+            </svg>
+            <span>Server not connected. Run: <code>deno task server</code></span>
           </div>
         )}
 
         {messages.length === 0 && serverConnected !== false && (
-          <div className="text-center text-secondary py-12">
-            <p className="text-lg mb-2">Start a research query</p>
-            <p className="text-sm">Enter a person's name to begin</p>
+          <div className="empty-state">
+            <h2 className="empty-state-title">Hunter Research Agent</h2>
+            <p className="empty-state-subtitle">Autonomous AI for comprehensive person research</p>
+            <div className="quick-actions">
+              <button 
+                className="quick-action-btn"
+                onClick={() => setInput("Who is Elon Musk?")}
+              >
+                <span>Who is Elon Musk?</span>
+              </button>
+              <button 
+                className="quick-action-btn"
+                onClick={() => setInput("Research Sam Altman")}
+              >
+                <span>Research Sam Altman</span>
+              </button>
+              <button 
+                className="quick-action-btn"
+                onClick={() => setInput("Tell me about Jensen Huang")}
+              >
+                <span>Tell me about Jensen Huang</span>
+              </button>
+            </div>
           </div>
         )}
 
         {messages.map((message) => (
           <div
             key={message.id}
-            className={`flex ${
-              message.role === 'user' ? 'justify-end' : 'justify-start'
-            }`}
+            className={`message ${message.role === 'user' ? 'message-user' : 'message-assistant'}`}
           >
-            <div className="max-w-[80%] space-y-2">
+            <div className="message-avatar">
+              {message.role === 'user' ? (
+                <div className="avatar avatar-user">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                </div>
+              ) : (
+                <div className="avatar avatar-assistant">
+                  <Image 
+                    src="/Hireal.png" 
+                    alt="Hireal" 
+                    width={24}
+                    height={24}
+                    className="object-contain"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="message-content-wrapper">
+              <div className="message-header">
+                <span className="message-sender">
+                  {message.role === 'user' ? 'You' : 'Hunter'}
+                </span>
+                <span className="message-time">
+                  {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+
               {message.role === 'assistant' && message.isStreaming && (
                 <SearchStatus
                   tools={toolStatus.tools}
@@ -279,39 +369,23 @@ export default function ChatInterface() {
                 />
               )}
 
-              <div
-                className={`rounded-2xl p-4 shadow-md ${
-                  message.role === 'user' ? 'glass bg-glass-hover' : 'glass metallic'
-                }`}
-              >
-                <div className="text-sm text-secondary mb-1">
-                  {message.role === 'user' ? 'You' : 'Agent'}
-                </div>
-
-                <div className="text-primary">
-                  {message.content ? (
-                    message.role === 'assistant' ? (
-                      <MarkdownRenderer content={message.content} />
-                    ) : (
-                      <span className="whitespace-pre-wrap">{message.content}</span>
-                    )
+              <div className="message-content">
+                {message.content ? (
+                  message.role === 'assistant' ? (
+                    <MarkdownRenderer content={message.content} />
                   ) : (
-                    <span className="flex items-center gap-2 text-secondary">
-                      <span>Thinking...</span>
-                      <span className="flex gap-1">
-                        <span className="w-2 h-2 bg-secondary rounded-full animate-pulse" />
-                        <span
-                          className="w-2 h-2 bg-secondary rounded-full animate-pulse"
-                          style={{ animationDelay: '0.2s' }}
-                        />
-                        <span
-                          className="w-2 h-2 bg-secondary rounded-full animate-pulse"
-                          style={{ animationDelay: '0.4s' }}
-                        />
-                      </span>
+                    <span className="whitespace-pre-wrap">{message.content}</span>
+                  )
+                ) : (
+                  <span className="thinking-indicator">
+                    <span>Thinking</span>
+                    <span className="thinking-dots">
+                      <span className="dot" />
+                      <span className="dot" />
+                      <span className="dot" />
                     </span>
-                  )}
-                </div>
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -319,26 +393,40 @@ export default function ChatInterface() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div
-        className="flex-shrink-0 border-t p-4 glass"
-        style={{ borderColor: 'var(--border-color)' }}
-      >
-        <form onSubmit={handleSubmit} className="flex gap-3">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Enter person's name to research..."
-            className="input flex-1"
-            disabled={isLoading}
-          />
-          <button
-            type="submit"
-            disabled={isLoading || !input.trim() || serverConnected === false}
-            className="btn btn-primary rounded-lg px-6"
-          >
-            {isLoading ? 'Searching...' : 'Research'}
-          </button>
+      {/* Input Area */}
+      <div className="input-container">
+        <form onSubmit={handleSubmit} className="input-form">
+          <div className="input-wrapper">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              placeholder="Describe your hiring needs or ask a question..."
+              className="chat-input"
+              disabled={isLoading}
+              rows={1}
+            />
+            <button
+              type="submit"
+              disabled={isLoading || !input.trim() || serverConnected === false}
+              className="send-btn"
+              aria-label="Send message"
+            >
+              {isLoading ? (
+                <svg className="loading-spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                </svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+                </svg>
+              )}
+            </button>
+          </div>
+          <div className="input-footer">
+            <span className="input-hint">Press Enter to send, Shift+Enter for new line</span>
+          </div>
         </form>
       </div>
     </div>
