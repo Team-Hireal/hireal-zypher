@@ -4,7 +4,7 @@
 
 declare module '@zypher/agent' {
   export class AnthropicModelProvider {
-    constructor(options: { apiKey: string });
+    constructor(options: { apiKey: string; baseURL?: string });
   }
 
   export function createZypherContext(cwd: string): Promise<any>;

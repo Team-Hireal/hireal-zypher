@@ -102,7 +102,7 @@ export default function Home() {
                 </div>
                 <div className="brand-text">
                   <span className="brand-name">Hunter</span>
-                  <span className="brand-subtitle">Research Agent</span>
+                  <span className="brand-subtitle">Background Verification Agent</span>
                 </div>
               </a>
             </div>
@@ -212,7 +212,7 @@ export default function Home() {
                   <span className="footer-text">Hireal</span>
                 </a>
                 <span className="footer-separator">•</span>
-                <span className="footer-label">Powered by Zypher Engine</span>
+                <span className="footer-label">Hunter Due Diligence Engine</span>
                 <span className="footer-separator">•</span>
                 <span className="footer-label">{conversations.length} chats</span>
                 <button 
@@ -317,10 +317,10 @@ export default function Home() {
                     />
                   </div>
                   <div className="about-info">
-                    <h4 className="about-title">Hireal Hunter Agent</h4>
-                    <p className="about-version">Version 1.0.0 • Powered by Zypher Engine</p>
+                    <h4 className="about-title">Hunter Agent</h4>
+                    <p className="about-version">Version 1.0.0 • Background Verification & Due Diligence</p>
                     <p className="about-description">
-                      Autonomous AI agent for comprehensive person research
+                      AI-powered background verification agent for comprehensive due diligence research. Verifies professional history, credentials, and digital footprint using advanced web research and historical archive analysis.
                     </p>
                   </div>
                 </div>

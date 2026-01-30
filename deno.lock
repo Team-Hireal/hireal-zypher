@@ -4486,7 +4486,8 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@zypher/agent@~0.7.3"
+      "jsr:@zypher/agent@~0.7.3",
+      "npm:rxjs-for-await@1"
     ],
     "packageJson": {
       "dependencies": [

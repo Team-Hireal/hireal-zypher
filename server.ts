@@ -43,11 +43,22 @@ async function getAgent(): Promise<ZypherAgent> {
   await loadEnvFile();
   const anthropicKey = getRequiredEnv("ANTHROPIC_API_KEY");
   const firecrawlKey = getRequiredEnv("FIRECRAWL_API_KEY");
+  const anthropicBaseURL = Deno.env.get("ANTHROPIC_BASE_URL");
 
   const ctx = await createZypherContext(Deno.cwd());
+
+  // Configure Anthropic provider with optional custom base URL
+  const providerOptions: { apiKey: string; baseURL?: string } = {
+    apiKey: anthropicKey
+  };
+  if (anthropicBaseURL) {
+    providerOptions.baseURL = anthropicBaseURL;
+    console.log(`Using custom Anthropic base URL: ${anthropicBaseURL}`);
+  }
+
   agent = new ZypherAgent(
     ctx,
-    new AnthropicModelProvider({ apiKey: anthropicKey }),
+    new AnthropicModelProvider(providerOptions),
   );
 
   await agent.mcp.registerServer({
@@ -57,6 +68,17 @@ async function getAgent(): Promise<ZypherAgent> {
       command: "npx",
       args: ["-y", "firecrawl-mcp"],
       env: { FIRECRAWL_API_KEY: firecrawlKey },
+    },
+  });
+
+  // Register Wayback Machine MCP server
+  await agent.mcp.registerServer({
+    id: "wayback-machine",
+    type: "command",
+    command: {
+      command: "deno",
+      args: ["run", "--allow-net", "--allow-env", "./mcp-servers/wayback-server.ts"],
+      env: {},
     },
   });
 
@@ -77,22 +99,36 @@ function isResearchQuery(query: string): boolean {
 
 function createTask(query: string, isResearch: boolean): string {
   if (!isResearch) {
-    return `You are a friendly AI assistant. User said: "${query}". Respond in 1-2 sentences. Do NOT use tools.`;
+    return `You are Hunter, a background verification and due diligence AI agent. User said: "${query}". Respond in 1-2 sentences. Do NOT use tools.`;
   }
 
-  return `Research comprehensive information about ${query}.
+  return `You are Hunter, a background verification and due diligence agent. Conduct comprehensive background research on ${query}.
 
-Gather: name, location, professional history, education, notable facts.
-Use web search tools. Cross-reference sources.
+Your mission: Verify identity, professional history, education, affiliations, and any notable information relevant for due diligence.
 
-IMPORTANT RULES:
-1. Output ONLY the final structured summary in Markdown format.
-2. Do NOT output thinking process like "Let me search...", "I'll try...", "I found...".
-3. Only include VERIFIED information that matches the person's name exactly.
-4. If you find multiple people with similar names, clearly state this and ask for clarification.
-5. Do NOT guess or assume affiliations without evidence.
+RESEARCH OBJECTIVES:
+- Full name and known aliases
+- Current and past professional positions
+- Educational background and credentials
+- Professional affiliations and memberships
+- Notable achievements, publications, or public records
+- Online presence and digital footprint
+- Historical information using Wayback Machine when relevant
 
-Begin research and output only the final summary.`;
+VERIFICATION STANDARDS:
+1. Cross-reference multiple sources for accuracy
+2. Use Wayback Machine to verify historical claims and track changes
+3. Flag any inconsistencies or gaps in information
+4. Distinguish between verified facts and unverified claims
+5. Note the recency and reliability of sources
+
+OUTPUT FORMAT:
+- Present findings in a clear, structured Markdown format
+- Include source citations
+- Highlight any red flags or areas requiring further investigation
+- Do NOT include your thinking process - only present verified findings
+
+Begin comprehensive background verification and due diligence research.`;
 }
 
 // Event types
@@ -191,7 +227,7 @@ async function handleRequest(req: Request): Promise<Response> {
 
         try {
           const ag = await getAgent();
-          const events = ag.runTask(task, "claude-sonnet-4-20250514");
+          const events = ag.runTask(task, "claude-sonnet-4-5-20250929");
 
           for await (const e of eachValueFrom(events)) {
             switch (e.type) {

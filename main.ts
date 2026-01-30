@@ -46,12 +46,20 @@ await loadEnvFile();
 // Initialize the agent execution context
 const zypherContext = await createZypherContext(Deno.cwd());
 
+// Configure Anthropic provider with optional custom base URL
+const anthropicBaseURL = Deno.env.get("ANTHROPIC_BASE_URL");
+const providerOptions: { apiKey: string; baseURL?: string } = {
+  apiKey: getRequiredEnv("ANTHROPIC_API_KEY")
+};
+if (anthropicBaseURL) {
+  providerOptions.baseURL = anthropicBaseURL;
+  console.log(`Using custom Anthropic base URL: ${anthropicBaseURL}`);
+}
+
 // Create the agent with your preferred LLM provider
 const agent = new ZypherAgent(
   zypherContext,
-  new AnthropicModelProvider({
-    apiKey: getRequiredEnv("ANTHROPIC_API_KEY"),
-  }),
+  new AnthropicModelProvider(providerOptions),
 );
 
 // Register and connect to an MCP server to give the agent web crawling capabilities
@@ -70,7 +78,7 @@ await agent.mcp.registerServer({
 // Run a task - the agent will use web crawling to find current AI news
 const event$ = agent.runTask(
   `Find latest AI news`,
-  "claude-sonnet-4-20250514",
+  "claude-sonnet-4-5-20250929",
 );
 
 // Stream the results in real-time
