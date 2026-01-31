@@ -208,10 +208,19 @@ export default function ChatInterface({
     try {
       const endpoint = '/api/research';
 
+      // Get last 10 messages for context (excluding the current assistant message being created)
+      const recentMessages = messages.slice(-10).map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ personName: query }),
+        body: JSON.stringify({
+          personName: query,
+          conversationHistory: recentMessages
+        }),
       });
 
       console.log('[Response status]', response.status);

@@ -5,7 +5,7 @@ const DENO_SERVER_URL = process.env.DENO_SERVER_URL || 'http://localhost:8000';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { personName } = body;
+    const { personName, conversationHistory } = body;
 
     if (!personName || typeof personName !== "string") {
       return new Response(
@@ -17,14 +17,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[API] Proxying request to Deno server: "${personName}"`);
+    console.log(`[API] Proxying request to Deno server: "${personName}" with ${conversationHistory?.length || 0} history messages`);
 
     const denoResponse = await fetch(`${DENO_SERVER_URL}/api/research`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ personName }),
+      body: JSON.stringify({
+        personName,
+        conversationHistory: conversationHistory || []
+      }),
     });
 
     if (!denoResponse.ok) {

@@ -89,22 +89,76 @@ async function getAgent(): Promise<ZypherAgent> {
 
 function isResearchQuery(query: string): boolean {
   const q = query.trim();
+
+  // Exclude simple greetings and acknowledgments
   if (/^(hi|hello|hey|thanks?|yes|no|ok|help)[\s!.,]*$/i.test(q)) return false;
   if (/^(who are you|what can you do)/i.test(q)) return false;
-  if (/(research|find|search|tell me about|who is|information about)/i.test(q))
+
+  // Task-based action verbs - these indicate the user wants something done
+  if (/(research|find|search|analyze|compare|verify|check|investigate|examine|review|assess|evaluate|show|get|retrieve|fetch|list|identify|track|monitor|audit|validate)/i.test(q))
     return true;
-  if (/[A-Z][a-z]+(\s*\([A-Za-z]+\))?\s+[A-Z][a-z]+/.test(q)) return true;
+
+  // Information requests
+  if (/(tell me about|information about|who is|what is|details about|background on)/i.test(q))
+    return true;
+
+  // Website and archive-related queries
+  if (/(website|site|domain|url|web|archive|wayback|snapshot|changes|history|evolution|timeline)/i.test(q))
+    return true;
+
+  // Due diligence and verification keywords
+  if (/(due diligence|background|profile|credentials|verification|validate|confirm)/i.test(q))
+    return true;
+
+  // Comparison and analysis
+  if (/(difference|vs|versus|between|compare|contrast)/i.test(q))
+    return true;
+
+  // Contains a URL or domain pattern
+  if (/\b[a-z0-9-]+\.(com|org|net|io|ai|co|dev|app|tech)\b/i.test(q))
+    return true;
+
+  // Person name pattern (capitalized words)
+  if (/[A-Z][a-z]+(\s*\([A-Za-z]+\))?\s+[A-Z][a-z]+/.test(q))
+    return true;
+
+  // Default to non-research for everything else
   return false;
 }
 
-function createTask(query: string, isResearch: boolean): string {
-  if (!isResearch) {
-    return `You are Hunter, a background verification and due diligence AI agent. User said: "${query}". Respond in 1-2 sentences. Do NOT use tools.`;
+function createTask(query: string, isResearch: boolean, conversationHistory: Array<{role: string, content: string}> = []): string {
+  // Build conversation context if available
+  let contextSection = '';
+  if (conversationHistory.length > 0) {
+    contextSection = '\n\nCONVERSATION CONTEXT (last 10 messages):\n';
+    conversationHistory.forEach((msg, idx) => {
+      contextSection += `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}\n`;
+    });
+    contextSection += `\nCurrent User Query: ${query}\n`;
   }
 
-  return `You are Hunter, a background verification and due diligence agent. Conduct comprehensive background research on ${query}.
+  if (!isResearch) {
+    return `You are Hunter, a background verification and due diligence AI agent.${contextSection ? contextSection : ` User said: "${query}".`} Respond in 1-2 sentences.`;
+  }
+
+  return `You are Hunter, a background verification and due diligence agent. Conduct comprehensive background research on ${query}.${contextSection}
 
 Your mission: Verify identity, professional history, education, affiliations, and any notable information relevant for due diligence.
+
+AVAILABLE TOOLS:
+You have access to the following Wayback Machine tools - USE THEM when analyzing websites or verifying historical information:
+- compare_wayback_snapshots: Compare oldest vs newest snapshots to detect changes
+- get_oldest_snapshot: Get the first archived version of a website
+- get_newest_snapshot: Get the most recent archived version
+- check_wayback_availability: Check if a URL is archived
+- is_url_archived: Quick boolean check for archive existence
+
+WHEN TO USE WAYBACK MACHINE:
+- When asked to analyze website changes or history
+- When verifying claims about past website content
+- When investigating company history or evolution
+- When checking if information existed at a specific time
+- When comparing current vs historical online presence
 
 RESEARCH OBJECTIVES:
 - Full name and known aliases
@@ -113,18 +167,18 @@ RESEARCH OBJECTIVES:
 - Professional affiliations and memberships
 - Notable achievements, publications, or public records
 - Online presence and digital footprint
-- Historical information using Wayback Machine when relevant
+- Historical information using Wayback Machine
 
 VERIFICATION STANDARDS:
-1. Cross-reference multiple sources for accuracy
-2. Use Wayback Machine to verify historical claims and track changes
+1. ALWAYS use Wayback Machine tools when analyzing websites or historical claims
+2. Cross-reference multiple sources for accuracy
 3. Flag any inconsistencies or gaps in information
 4. Distinguish between verified facts and unverified claims
 5. Note the recency and reliability of sources
 
 OUTPUT FORMAT:
 - Present findings in a clear, structured Markdown format
-- Include source citations
+- Include source citations and archive URLs when using Wayback Machine
 - Highlight any red flags or areas requiring further investigation
 - Do NOT include your thinking process - only present verified findings
 
@@ -170,7 +224,7 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   if (url.pathname === "/api/research" && req.method === "POST") {
-    const { personName } = await req.json();
+    const { personName, conversationHistory } = await req.json();
     if (!personName) {
       return new Response(JSON.stringify({ error: "personName required" }), {
         status: 400,
@@ -179,9 +233,9 @@ async function handleRequest(req: Request): Promise<Response> {
     }
 
     const isResearch = isResearchQuery(personName);
-    const task = createTask(personName, isResearch);
+    const task = createTask(personName, isResearch, conversationHistory || []);
     console.log(
-      `[Request] "${personName}" | ${isResearch ? "Research" : "Chat"}`,
+      `[Request] "${personName}" | ${isResearch ? "Research" : "Chat"} | History: ${conversationHistory?.length || 0} messages`,
     );
 
     const encoder = new TextEncoder();
