@@ -1,12 +1,13 @@
-# Hireal Zypher - Person Research Agent
+# Hunter — Background Verification & Due Diligence Agent
 
-A self-autonomous AI agent built with the Zypher framework that crawls the internet to gather comprehensive information about individuals. Features a beautiful, modern chatbot interface with frosted glass design elements.
+Hunter is an autonomous AI agent built with the Zypher framework that researches and verifies individuals and companies through comprehensive internet analysis and historical data verification. It powers the Hireal due diligence platform.
 
 ## Features
 
-- **Autonomous Research**: The agent independently searches for and verifies information about individuals
-- **Comprehensive Data Gathering**: Collects Name, Age, Gender, Location, Professional History, Educational History, and Fun Facts
+- **Autonomous Research**: Hunter independently searches for and verifies information about individuals and companies
+- **Comprehensive Data Gathering**: Collects identity, professional history, education, credentials, affiliations, and digital footprint
 - **Information Verification**: Cross-references multiple sources to verify data accuracy
+- **Wayback Machine Integration**: Analyzes historical website data for timeline verification
 - **Alternative Search Methods**: Uses creative approaches (e.g., finding LinkedIn through company websites) when direct searches fail
 - **Real-time Streaming**: Live updates as the agent discovers information
 - **Modern UI**: Clean, minimalist design with frosted glass, metallic surfaces, gradients, and shadows
@@ -61,7 +62,7 @@ npm install
 
 ### Start the Backend Server (Deno)
 
-In one terminal, start the Zypher agent server:
+In one terminal, start the Hunter agent server:
 
 ```bash
 deno task server
@@ -85,14 +86,14 @@ The frontend will be available at `http://localhost:3000`.
 
 1. Open `http://localhost:3000` in your browser
 2. Enter a person's name in the chat interface
-3. Click "Research" to start the autonomous agent
-4. Watch as the agent streams real-time updates while gathering information
+3. Click "Research" to start Hunter
+4. Watch as Hunter streams real-time updates while gathering information
 5. View structured results with verification status for each data point
 
 ## Architecture
 
 ### Backend (`server.ts`)
-- Deno HTTP server exposing the Zypher agent via API endpoints
+- Deno HTTP server exposing the Hunter agent via API endpoints
 - Server-Sent Events (SSE) for real-time streaming
 - Autonomous agent logic with information verification
 - Alternative search method strategies
@@ -103,9 +104,13 @@ The frontend will be available at `http://localhost:3000`.
 - Beautiful UI with custom CSS (frosted glass, metallic surfaces)
 - Real-time message updates via SSE
 
-## Agent Capabilities
+## Agent Identity
 
-The agent autonomously:
+This agent is named **Hunter**. It is a background verification and due diligence agent. When responding to users, it must always identify as Hunter — never as Zypher, Kiro, or any other name. The Zypher framework powers Hunter but is not the agent's identity.
+
+## Hunter Capabilities
+
+Hunter autonomously:
 
 1. **Searches** multiple sources for person information
 2. **Verifies** data by cross-referencing sources
@@ -166,7 +171,7 @@ hireal-zypher/
 
 ### `POST /api/research`
 
-Start a person research task.
+Start a background verification research task via Hunter.
 
 **Request Body:**
 ```json
