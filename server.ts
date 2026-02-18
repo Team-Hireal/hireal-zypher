@@ -27,10 +27,15 @@ async function loadEnvFile(): Promise<void> {
   }
 }
 
-function getRequiredEnv(name: string): string {
-  const value = Deno.env.get(name)?.trim();
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
+function getEnvWithFallback(primary: string, fallback: string): string {
+  const primaryValue = Deno.env.get(primary)?.trim();
+  if (primaryValue) return primaryValue;
+  const fallbackValue = Deno.env.get(fallback)?.trim();
+  if (fallbackValue) {
+    console.log(`Using fallback ${fallback}: ${fallbackValue.substring(0, 10)}...`);
+    return fallbackValue;
+  }
+  throw new Error(`Neither ${primary} nor ${fallback} is set`);
 }
 
 // Agent singleton
@@ -41,9 +46,13 @@ async function getAgent(): Promise<ZypherAgent> {
   if (agent) return agent;
 
   await loadEnvFile();
-  const anthropicKey = getRequiredEnv("ANTHROPIC_API_KEY");
-  const firecrawlKey = getRequiredEnv("FIRECRAWL_API_KEY");
-  const anthropicBaseURL = Deno.env.get("ANTHROPIC_BASE_URL");
+  const anthropicKey = getEnvWithFallback("ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY_FALLBACK");
+  const firecrawlKey = getEnvWithFallback("FIRECRAWL_API_KEY", "FIRECRAWL_API_KEY_FALLBACK");
+
+  // Try primary base URL first, then fall back to default Anthropic API
+  const primaryBaseURL = Deno.env.get("ANTHROPIC_BASE_URL")?.trim();
+  const fallbackBaseURL = Deno.env.get("ANTHROPIC_BASE_URL_FALLBACK")?.trim();
+  const anthropicBaseURL = primaryBaseURL || fallbackBaseURL || undefined;
 
   const ctx = await createZypherContext(Deno.cwd());
 
@@ -53,7 +62,7 @@ async function getAgent(): Promise<ZypherAgent> {
   };
   if (anthropicBaseURL) {
     providerOptions.baseURL = anthropicBaseURL;
-    console.log(`Using custom Anthropic base URL: ${anthropicBaseURL}`);
+    console.log(`Using Anthropic base URL: ${anthropicBaseURL}`);
   }
 
   agent = new ZypherAgent(
