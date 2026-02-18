@@ -70,26 +70,37 @@ async function getAgent(): Promise<ZypherAgent> {
     new AnthropicModelProvider(providerOptions),
   );
 
-  await agent.mcp.registerServer({
-    id: "firecrawl",
-    type: "command",
-    command: {
-      command: "npx",
-      args: ["-y", "firecrawl-mcp"],
-      env: { FIRECRAWL_API_KEY: firecrawlKey },
-    },
-  });
+  // Register Firecrawl MCP server with timeout
+  try {
+    await agent.mcp.registerServer({
+      id: "firecrawl",
+      type: "command",
+      command: {
+        command: "npx",
+        args: ["-y", "firecrawl-mcp"],
+        env: { FIRECRAWL_API_KEY: firecrawlKey },
+      },
+    });
+    console.log("Firecrawl MCP server registered");
+  } catch (error) {
+    console.warn("Failed to register Firecrawl MCP server:", error);
+  }
 
   // Register Wayback Machine MCP server
-  await agent.mcp.registerServer({
-    id: "wayback-machine",
-    type: "command",
-    command: {
-      command: "deno",
-      args: ["run", "--allow-net", "--allow-env", "./mcp-servers/wayback-server.ts"],
-      env: {},
-    },
-  });
+  try {
+    await agent.mcp.registerServer({
+      id: "wayback-machine",
+      type: "command",
+      command: {
+        command: "deno",
+        args: ["run", "--allow-net", "--allow-env", "./mcp-servers/wayback-server.ts"],
+        env: {},
+      },
+    });
+    console.log("Wayback Machine MCP server registered");
+  } catch (error) {
+    console.warn("Failed to register Wayback Machine MCP server:", error);
+  }
 
   return agent;
 }
