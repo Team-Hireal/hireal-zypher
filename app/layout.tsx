@@ -3,7 +3,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Hireal - Hunter Research Agent',
-  description: 'Autonomous AI agent powered by Zypher Engine for comprehensive person research',
+  description: 'Autonomous AI agent for comprehensive person research',
   icons: {
     icon: '/Hireal.png',
   },
@@ -20,4 +20,3 @@ export default function RootLayout({
     </html>
   )
 }
-

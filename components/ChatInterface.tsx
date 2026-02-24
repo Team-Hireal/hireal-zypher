@@ -32,10 +32,10 @@ interface ChatInterfaceProps {
   onNewConversation: () => void;
 }
 
-export default function ChatInterface({ 
-  conversationId, 
-  onConversationUpdate, 
-  onNewConversation 
+export default function ChatInterface({
+  conversationId,
+  onConversationUpdate,
+  onNewConversation
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -82,7 +82,6 @@ export default function ChatInterface({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      // Create a synthetic form event for handleSubmit
       const syntheticEvent = {
         preventDefault: () => {},
       } as React.FormEvent;
@@ -174,12 +173,12 @@ export default function ChatInterface({
     setMessages(prev => [...prev, userMessage]);
     const query = input.trim();
     setInput('');
-    
+
     // Reset textarea height
     if (inputRef.current) {
       inputRef.current.style.height = 'auto';
     }
-    
+
     setIsLoading(true);
 
     // Update conversation title with first message
@@ -208,7 +207,7 @@ export default function ChatInterface({
     try {
       const endpoint = '/api/research';
 
-      // Get last 10 messages for context (excluding the current assistant message being created)
+      // Get last 10 messages for context
       const recentMessages = messages.slice(-10).map(msg => ({
         role: msg.role,
         content: msg.content
@@ -318,19 +317,19 @@ export default function ChatInterface({
             <h2 className="empty-state-title">Hunter Research Agent</h2>
             <p className="empty-state-subtitle">Autonomous AI for comprehensive person research</p>
             <div className="quick-actions">
-              <button 
+              <button
                 className="quick-action-btn"
                 onClick={() => setInput("Who is Elon Musk?")}
               >
                 <span>Who is Elon Musk?</span>
               </button>
-              <button 
+              <button
                 className="quick-action-btn"
                 onClick={() => setInput("Research Sam Altman")}
               >
                 <span>Research Sam Altman</span>
               </button>
-              <button 
+              <button
                 className="quick-action-btn"
                 onClick={() => setInput("Tell me about Jensen Huang")}
               >
@@ -355,9 +354,9 @@ export default function ChatInterface({
                 </div>
               ) : (
                 <div className="avatar avatar-assistant">
-                  <Image 
-                    src="/Hireal.png" 
-                    alt="Hireal" 
+                  <Image
+                    src="/Hireal.png"
+                    alt="Hireal"
                     width={24}
                     height={24}
                     className="object-contain"

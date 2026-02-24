@@ -6,8 +6,8 @@ const PRODUCT_URL = process.env.NEXT_PUBLIC_PRODUCT_URL || '/'
 
 const CheckIcon = () => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-    <circle cx="7" cy="7" r="6" stroke="#3b82f6" strokeWidth="1.5" />
-    <path d="M5 7l1.5 1.5L9 5.5" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="7" cy="7" r="6" stroke="#171717" strokeWidth="1.5" />
+    <path d="M5 7l1.5 1.5L9 5.5" stroke="#171717" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
 
@@ -27,16 +27,15 @@ export default function Hero() {
         <div className="hero__text">
           <div className="hero__badge reveal">
             <span className="hero__badge-dot" />
-            Powered by Zypher AI Engine
+            Autonomous AI Research Agent
           </div>
           <h1 className="hero__title reveal">
-            Background verification,<br />
-            <span className="hero__title-accent">reimagined.</span>
+            Background<br />
+            Verification<br />
+            <span className="hero__title-accent">with Confidence</span>
           </h1>
           <p className="hero__subtitle reveal">
-            Hunter is an autonomous AI agent that researches and cross-references
-            individuals and companies across the internet — including historical
-            records — to deliver verified, comprehensive due diligence reports.
+            Hunter researches individuals and companies across the web and Wayback Machine to deliver verified insights and due diligence reports.
           </p>
           <div className="hero__cta reveal">
             <a href={PRODUCT_URL} className="btn btn--primary btn--lg">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 
@@ -22,6 +22,9 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [theme, setTheme] = useState<Theme>('dark');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   // Load theme from localStorage on mount
   useEffect(() => {
@@ -31,6 +34,14 @@ export default function Home() {
       document.documentElement.setAttribute('data-theme', savedTheme);
     }
   }, []);
+
+  // Focus input when editing
+  useEffect(() => {
+    if (editingId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingId]);
 
   // Update theme
   const toggleTheme = (newTheme: Theme) => {
@@ -50,7 +61,7 @@ export default function Home() {
   };
 
   const handleConversationUpdate = (id: string, title: string) => {
-    setConversations(prev => prev.map(conv => 
+    setConversations(prev => prev.map(conv =>
       conv.id === id ? { ...conv, title } : conv
     ));
   };
@@ -59,6 +70,33 @@ export default function Home() {
     setConversations(prev => prev.filter(conv => conv.id !== id));
     if (activeConversationId === id) {
       setActiveConversationId(null);
+    }
+  };
+
+  const handleStartRename = (conv: Conversation) => {
+    setEditingId(conv.id);
+    setEditTitle(conv.title);
+  };
+
+  const handleSaveRename = () => {
+    if (editingId && editTitle.trim()) {
+      // Limit to 5 words
+      const words = editTitle.trim().split(/\s+/).slice(0, 5);
+      const truncatedTitle = words.join(' ');
+      setConversations(prev => prev.map(conv =>
+        conv.id === editingId ? { ...conv, title: truncatedTitle } : conv
+      ));
+    }
+    setEditingId(null);
+    setEditTitle('');
+  };
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveRename();
+    } else if (e.key === 'Escape') {
+      setEditingId(null);
+      setEditTitle('');
     }
   };
 
@@ -147,12 +185,19 @@ export default function Home() {
               <div className="conversation-group">
                 <div className="conversation-group-title">TODAY</div>
                 {grouped.today.map(conv => (
-                  <ConversationItem 
+                  <ConversationItem
                     key={conv.id}
                     conversation={conv}
                     isActive={activeConversationId === conv.id}
                     onClick={() => setActiveConversationId(conv.id)}
                     onDelete={() => handleDeleteConversation(conv.id)}
+                    onRename={() => handleStartRename(conv)}
+                    isEditing={editingId === conv.id}
+                    editValue={editTitle}
+                    onEditChange={setEditTitle}
+                    onEditSave={handleSaveRename}
+                    onEditKeyDown={handleRenameKeyDown}
+                    editInputRef={editInputRef}
                   />
                 ))}
               </div>
@@ -162,12 +207,19 @@ export default function Home() {
               <div className="conversation-group">
                 <div className="conversation-group-title">PREVIOUS 30 DAYS</div>
                 {grouped.previous30Days.map(conv => (
-                  <ConversationItem 
+                  <ConversationItem
                     key={conv.id}
                     conversation={conv}
                     isActive={activeConversationId === conv.id}
                     onClick={() => setActiveConversationId(conv.id)}
                     onDelete={() => handleDeleteConversation(conv.id)}
+                    onRename={() => handleStartRename(conv)}
+                    isEditing={editingId === conv.id}
+                    editValue={editTitle}
+                    onEditChange={setEditTitle}
+                    onEditSave={handleSaveRename}
+                    onEditKeyDown={handleRenameKeyDown}
+                    editInputRef={editInputRef}
                   />
                 ))}
               </div>
@@ -177,12 +229,19 @@ export default function Home() {
               <div className="conversation-group">
                 <div className="conversation-group-title">OLDER</div>
                 {grouped.older.map(conv => (
-                  <ConversationItem 
+                  <ConversationItem
                     key={conv.id}
                     conversation={conv}
                     isActive={activeConversationId === conv.id}
                     onClick={() => setActiveConversationId(conv.id)}
                     onDelete={() => handleDeleteConversation(conv.id)}
+                    onRename={() => handleStartRename(conv)}
+                    isEditing={editingId === conv.id}
+                    editValue={editTitle}
+                    onEditChange={setEditTitle}
+                    onEditSave={handleSaveRename}
+                    onEditKeyDown={handleRenameKeyDown}
+                    editInputRef={editInputRef}
                   />
                 ))}
               </div>
@@ -333,32 +392,61 @@ export default function Home() {
   )
 }
 
-function ConversationItem({ 
-  conversation, 
-  isActive, 
-  onClick, 
-  onDelete 
-}: { 
-  conversation: Conversation; 
-  isActive: boolean; 
-  onClick: () => void; 
+function ConversationItem({
+  conversation,
+  isActive,
+  onClick,
+  onDelete,
+  onRename,
+  isEditing,
+  editValue,
+  onEditChange,
+  onEditSave,
+  onEditKeyDown,
+  editInputRef
+}: {
+  conversation: Conversation;
+  isActive: boolean;
+  onClick: () => void;
   onDelete: () => void;
+  onRename: () => void;
+  isEditing: boolean;
+  editValue: string;
+  onEditChange: (value: string) => void;
+  onEditSave: () => void;
+  onEditKeyDown: (e: React.KeyboardEvent) => void;
+  editInputRef: React.RefObject<HTMLInputElement>;
 }) {
   const [showDelete, setShowDelete] = useState(false);
 
   return (
-    <div 
+    <div
       className={`conversation-item ${isActive ? 'active' : ''}`}
-      onClick={onClick}
+      onClick={isEditing ? undefined : onClick}
       onMouseEnter={() => setShowDelete(true)}
       onMouseLeave={() => setShowDelete(false)}
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
-      <span className="conversation-title">{conversation.title}</span>
-      {showDelete && (
-        <button 
+      {isEditing ? (
+        <input
+          ref={editInputRef}
+          type="text"
+          value={editValue}
+          onChange={(e) => onEditChange(e.target.value)}
+          onBlur={onEditSave}
+          onKeyDown={onEditKeyDown}
+          className="conversation-edit-input"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <span className="conversation-title" onDoubleClick={(e) => { e.stopPropagation(); onRename(); }}>
+          {conversation.title}
+        </span>
+      )}
+      {showDelete && !isEditing && (
+        <button
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           className="conversation-delete"
           aria-label="Delete conversation"
