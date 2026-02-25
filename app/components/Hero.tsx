@@ -35,7 +35,7 @@ export default function Hero() {
             <span className="hero__title-accent">with Confidence</span>
           </h1>
           <p className="hero__subtitle reveal">
-            Hunter researches individuals and companies across the web and Wayback Machine to deliver verified insights and due diligence reports.
+            Hunter is an autonomous AI agent developed by Hireal, powered by the Zypher framework by Corespeed. It researches individuals and companies across the web and Wayback Machine to deliver verified insights and due diligence reports.
           </p>
           <div className="hero__cta reveal">
             <a href={PRODUCT_URL} className="btn btn--primary btn--lg">
