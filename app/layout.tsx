@@ -1,12 +1,18 @@
 import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
 import './globals.css'
 
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-body',
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
-  title: 'Hireal - Hunter Research Agent',
-  description: 'Autonomous AI agent for comprehensive person research',
-  icons: {
-    icon: '/Hireal.png',
-  },
+  title: 'Hunter by Hireal — AI-Powered Due Diligence',
+  description:
+    'Autonomous AI agent that researches and verifies individuals and companies through comprehensive internet analysis and historical data verification.',
+  icons: { icon: '/Hireal.png' },
 }
 
 export default function RootLayout({
@@ -15,8 +21,10 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" className={inter.variable}>
+      <body className="font-body antialiased">
+        {children}
+      </body>
     </html>
   )
 }
