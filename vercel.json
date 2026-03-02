@@ -1,15 +1,7 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "app/api/research/**",
-      "use": "@vercel/deno"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/research(.*)",
-      "dest": "/app/api/research/route.ts"
-    }
-  ]
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs"
 }
