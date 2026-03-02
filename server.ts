@@ -257,6 +257,7 @@ async function handleRequest(req: Request): Promise<Response> {
     console.log(
       `[Request] "${personName}" | ${isResearch ? "Research" : "Chat"} | History: ${conversationHistory?.length || 0} messages`,
     );
+    console.log(`[Debug] Generated task: ${task.substring(0, 200)}...`);
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
