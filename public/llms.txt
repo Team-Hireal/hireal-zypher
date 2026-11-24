@@ -1,0 +1,13 @@
+# Hunter by Hireal
+
+> Hunter is an autonomous AI agent by Hireal that researches and verifies individuals and companies for background checks and due diligence, built for teams making hiring and investment decisions.
+
+Hunter is built on the Zypher agent framework by Corespeed. You ask a natural-language question about a person or company; Hunter decides what to search, crawls the web, checks historical records through the Wayback Machine, cross-references multiple sources, and returns a source-cited report with confidence scores and flagged inconsistencies. Results stream in real time. It uses the MCP protocol so new data sources and verification tools can be added. Access is currently by early-access request.
+
+## Pages
+- [Home](https://www.hiagent.pro/): product overview, features (autonomous research, historical verification, multi-source analysis, real-time streaming), how it works, and early-access sign-up
+
+## About
+- [Made by Simon Tian](https://www.hisimon.pro): engineer and founder who builds AI products, apps and games
+- [More apps by Simon Tian](https://www.hisimon.pro/projects)
+- [Source code](https://github.com/Team-Hireal/hireal-zypher)
